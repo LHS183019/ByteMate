@@ -2,7 +2,7 @@
 
 # ByteMate
 
-📍 [首页](https://LHS183019.github.io/ByteMate) &nbsp; |&nbsp; **团队公约** &nbsp; |&nbsp; [团建活动](teamContract.html)
+📍 [首页](https://LHS183019.github.io/ByteMate) &nbsp; |&nbsp; **团队公约** &nbsp; |&nbsp; [团建活动](teamBonding.html)
 </div>
 
 ---
