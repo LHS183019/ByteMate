@@ -11,6 +11,99 @@
 ![](./readme_asset/asset1.png)
 
 
+## 文件架构
+
+ai-openjudge-helper/
+│
+├── manifest.json 
+│
+├── background/
+│   └── background.js
+│
+├── content/
+│   ├── content-script.js
+│   ├── inject-ui.js
+│   └── style.css
+│
+├── api/
+│   ├── llm.js
+│   └── storage.js
+│
+├── prompts/
+│   ├── guide.txt
+│   ├── idea.txt
+│   ├── code_fix.txt
+│   └── knowledge_tag.txt
+│
+├── dashboard/
+│   ├── index.html
+│   ├── index.js
+│   ├── index.css
+│   ├── charts.js
+│   └── pet.js
+│
+├── popup/
+│   ├── popup.html
+│   ├── popup.js
+│   └── popup.css
+│
+└── assets/
+    ├── icon128.png
+    ├── icon48.png
+    ├── icon16.png
+    └── pet/
+        ├── pet_idle.json   (Lottie 动画或 gif)
+        ├── pet_happy.json
+        └── pet_sad.json
+
+### 目录说明
+**manifest.json** 插件入口声明文件（必备），定义权限、脚本注入、后台脚本等。
+
+**background.js** 插件后台（Service Worker）
+* 处理 content script 的消息
+* 调用 LLM API（llm.js）
+* 管理学习进度存储
+* 控制 Dashboard 跳转
+
+**content-script.js**  注入到 OpenJudge 页面：
+* 获取题目标题、描述、代码内容
+* 将 UI 注入网页
+* 响应按钮点击 → 向后台发送消息
+
+**inject-ui.js**  管理悬浮按钮、气泡提示、弹出窗口（让 UI 不与网站冲突）
+
+**style.css**专为注入 UI 使用的样式，采用 shadow DOM 避免冲突
+
+**llm.js** 封装大语言模型 API 通讯（OpenAI/DeepSeek/Zhipu/Qwen/Groq 任意可切换）
+
+**storage.js**  封装 chrome.storage
+如：saveProgress(),getProgress(),updateKnowledgeTags(),updatePetStatus()
+
+**prompts /** 存放所有用于 LLM 的 prompt 模板
+* guide.txt → “问题引导”
+* idea.txt → “思路提示”
+* code_fix.txt → “代码纠错”
+* knowledge_tag.txt → “知识点识别与分类”
+
+**dashboard /** 插件自己的独立网页（Dashboard）
+* index.html: 页面结构（iframe 不需要，独立页面即可）
+* index.js: 主逻辑：
+  * 加载用户学习记录
+  * 加载知识点
+  * 调用 charts.js 渲染图表
+  * 调用 pet.js 渲染电子宠物
+* index.css：Dashboard 的样式
+* charts.js：封装图表绘制（Chart.js）
+
+**popup /**插件右上角小窗口（可选）
+* 切换模型
+* 输入 API key
+* 查看今日学习情况
+* 跳转 Dashboard 按钮
+
+**assets /** 图标与宠物动画资源
+
+
 ## 当前`development`的进展(2025/11/14/12:11)
 
 现在写了一个整体的框架，然后一些简单的前端设计和特别基础的交互功能已经可以实现，也可以爬取题目信息了，剩下就是一些LLM的部署、学习进度、相似题目推荐、（电子宠物）这些功能就要整合进来，以及还剩一些前端的设计需要做。
