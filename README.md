@@ -13,6 +13,7 @@
 
 ## 文件架构
 
+```
 ai-openjudge-helper/
 │
 ├── manifest.json 
@@ -55,6 +56,7 @@ ai-openjudge-helper/
         ├── pet_idle.json   (Lottie 动画或 gif)
         ├── pet_happy.json
         └── pet_sad.json
+```
 
 ### 目录说明
 **manifest.json** 插件入口声明文件（必备），定义权限、脚本注入、后台脚本等。
@@ -95,7 +97,7 @@ ai-openjudge-helper/
 * index.css：Dashboard 的样式
 * charts.js：封装图表绘制（Chart.js）
 
-**popup /**插件右上角小窗口（可选）
+**popup /** 插件右上角小窗口（可选）
 * 切换模型
 * 输入 API key
 * 查看今日学习情况
