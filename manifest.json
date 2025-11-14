@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "AI OpenJudge Helper",
+  "description": "OpenJudge 学习助手：问题引导、思路提示、代码纠错、学习进度、宠物陪伴。",
+  "version": "0.1",
+
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+
+  "background": {
+    "service_worker": "background/background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["*://*.openjudge.cn/*", "*://openjudge.cn/*"],
+      "js": ["content/content-script.js"],
+      "css": ["content/style.css"]
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/inject-ui.js",
+        "content/style.css",
+        "assets/*",
+        "dashboard/*",
+        "prompts/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+/* Styles for the floating AI helper button and expanded menu */
+#oj-helper-btn {
+	position: fixed;
+	right: 20px;
+	bottom: 20px;
+	width: 48px;
+	height: 48px;
+	background: #1976d2;
+	color: #fff;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	cursor: pointer;
+	z-index: 2147483647;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+	transition: transform 160ms ease, background 160ms ease;
+}
+
+#oj-helper-btn:focus {
+	outline: 2px solid rgba(25,118,210,0.25);
+	transform: scale(1.03);
+}
+
+/* container for child action buttons */
+.oj-helper-menu {
+	position: fixed;
+	right: 20px;
+	bottom: 80px;
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 10px;
+	align-items: flex-end;
+	z-index: 2147483646;
+	pointer-events: none; /* default not interactable until expanded */
+}
+
+.oj-helper-menu.expanded {
+	pointer-events: auto;
+}
+
+.oj-helper-action {
+	background: #fff;
+	color: #222;
+	padding: 8px 12px;
+	border-radius: 6px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+	font-size: 13px;
+	cursor: pointer;
+	transform-origin: right center;
+	transition: opacity 140ms ease, transform 160ms ease;
+	opacity: 0;
+	transform: translateY(6px) scale(0.98);
+	pointer-events: auto;
+}
+
+.oj-helper-menu.expanded .oj-helper-action {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+}
+
+.oj-helper-action:focus {
+	outline: 2px solid rgba(25,118,210,0.2);
+}
+
+/* small label for icon-only appearance on narrow screens */
+@media (max-width: 480px) {
+	#oj-helper-btn { width: 44px; height: 44px; }
+	.oj-helper-action { padding: 8px 10px; font-size: 12px; }
+}
+
+/* touch-friendly: increase hit area */
+.oj-helper-action.touch { padding: 12px 14px; }
+
