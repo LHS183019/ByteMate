@@ -1,14 +1,94 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>学习进度 Dashboard</title>
 	<link rel="stylesheet" href="index.css">
+	<!-- Chart.js 用于数据可视化 -->
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body>
-	<h1>学习进度 Dashboard</h1>
-	<p>功能开发中...</p>
+	<div class="dashboard-container">
+		<!-- 头部 -->
+		<header class="dashboard-header">
+			<h1>📚 学习进度 Dashboard</h1>
+			<p class="subtitle">OpenJudge 学习辅助系统</p>
+		</header>
+
+		<!-- 主内容区域 -->
+		<main class="dashboard-main">
+			<!-- 左侧：电子宠物区域 -->
+			<aside class="pet-section">
+				<div class="pet-card">
+					<h2>我的学习伙伴</h2>
+					<div id="pet-container" class="pet-container">
+						<!-- 电子宠物动画将在这里渲染 -->
+					</div>
+					<p class="pet-status" id="pet-status">状态: 待命中</p>
+				</div>
+			</aside>
+
+			<!-- 右侧：主要内容 -->
+			<section class="content-section">
+				<!-- 今日学习统计 -->
+				<div class="card today-stats">
+					<h2>📊 今日学习情况</h2>
+					<div class="stats-grid">
+						<div class="stat-item">
+							<span class="stat-label">已完成题目</span>
+							<span class="stat-value" id="today-completed">0</span>
+						</div>
+						<div class="stat-item">
+							<span class="stat-label">学习时长</span>
+							<span class="stat-value" id="today-duration">0h</span>
+						</div>
+				<div class="stat-item">
+					<span class="stat-label">掌握知识点</span>
+					<span class="stat-value" id="today-tags">0</span>
+				</div>
+					</div>
+				</div>
+
+				<!-- 学习趋势图表 -->
+				<div class="card chart-container">
+					<h2>📈 最近 7 天学习趋势</h2>
+					<canvas id="trendChart"></canvas>
+				</div>
+
+				<!-- 知识点分类统计 -->
+				<div class="card chart-container">
+					<h2>🏷️ 知识点掌握情况</h2>
+					<canvas id="knowledgeChart"></canvas>
+				</div>
+
+				<!-- 最近练习记录 -->
+				<div class="card recent-problems">
+					<h2>⏱️ 最近练习</h2>
+					<div id="recent-problems-list" class="problems-list">
+						<!-- 最近练习的题目将在这里渲染 -->
+					</div>
+				</div>
+
+				<!-- 相似题目推荐 -->
+				<div class="card recommended-problems">
+					<h2>💡 推荐相似题目</h2>
+					<div id="recommended-problems-list" class="problems-list">
+						<!-- 推荐的题目将在这里渲染 -->
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<!-- 底部 -->
+		<footer class="dashboard-footer">
+			<p>© 2025 OpenJudge Learning Assistant</p>
+		</footer>
+	</div>
+
+	<!-- 脚本加载顺序很重要 -->
+	<script src="charts.js"></script>
+	<script src="pet.js"></script>
 	<script src="index.js"></script>
 </body>
 </html>
