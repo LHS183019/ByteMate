@@ -99,7 +99,7 @@ class LLMClient {
       return data.models || [];
     } catch (error) {
       console.error('Failed to fetch models:', error);
-      return ['gpt-4', 'gpt-3.5-turbo', 'claude-3', 'deepseek', 'qwen'];
+      return ['deepseek', 'qwen', 'zhipu'];
     }
   }
 }

@@ -10,11 +10,9 @@ app.use(cors({
 
 // API 密钥（从环境变量读取，绝不在代码中暴露）
 const API_KEYS = {
-  openai: process.env.OPENAI_API_KEY,
   deepseek: process.env.DEEPSEEK_API_KEY,
   zhipu: process.env.ZHIPU_API_KEY,
   qwen: process.env.QWEN_API_KEY,
-  groq: process.env.GROQ_API_KEY,
 };
 
 // 用户限流配置
@@ -34,17 +32,13 @@ app.post('/api/llm', async (req, res) => {
 
     // 根据模型调用对应 API
     let response;
-    if (model.includes('gpt')) {
-      response = await callOpenAI(prompt, model, temperature, maxTokens);
-    } else if (model.includes('deepseek')) {
+    if (model.includes('deepseek')) {
       response = await callDeepSeek(prompt, temperature, maxTokens);
     } else if (model.includes('zhipu')) {
       response = await callZhipu(prompt, temperature, maxTokens);
-    } else if (model.includes('qwen')) {
-      response = await callQwen(prompt, temperature, maxTokens);
     } else {
-      response = await callGroq(prompt, temperature, maxTokens);
-    }
+      response = await callQwen(prompt, temperature, maxTokens);
+    } 
 
     res.json({ content: response });
   } catch (error) {
@@ -81,21 +75,14 @@ app.post('/api/llm/stream', async (req, res) => {
 app.get('/api/llm/models', (req, res) => {
   res.json({
     models: [
-      'gpt-4',
-      'gpt-3.5-turbo',
-      'deepseek-chat',
-      'zhipu-pro',
-      'qwen-max',
-      'groq-mixtral',
+      'deepseek',
+      'zhipu',
+      'qwen',
     ],
   });
 });
 
 // ...具体 API 调用实现
-async function callOpenAI(prompt, model, temperature, maxTokens) {
-  // 使用 API_KEYS.openai 调用 OpenAI API
-}
-
 async function callDeepSeek(prompt, temperature, maxTokens) {
   // 使用 API_KEYS.deepseek 调用 DeepSeek API
 }
