@@ -102,6 +102,105 @@ class LLMClient {
       return ['deepseek', 'qwen', 'zhipu'];
     }
   }
+
+  /**
+   * 使用提示词进行 AI 辅助（通用方法）
+   * @param {string} prompt - 提示词模板
+   * @param {string} userCode - 用户代码
+   * @param {string} userProblem - 用户问题描述
+   * @param {object} options - 其他选项
+   * @returns {Promise<object>} - JSON 格式的回复
+   */
+  async assistWithPrompt(prompt, userCode, userProblem, options = {}) {
+    try {
+      const combinedPrompt = this.constructPrompt(
+        prompt,
+        userCode,
+        userProblem,
+        options
+      );
+
+      const response = await this.chat(combinedPrompt, {
+        model: options.model || this.model,
+        temperature: 0.6, // 辅助任务使用较低温度保证质量
+        maxTokens: options.maxTokens || 2500,
+      });
+
+      // 尝试解析 JSON 响应
+      try {
+        return JSON.parse(response);
+      } catch (e) {
+        // 如果不是 JSON，包装成 JSON 格式
+        return {
+          type: options.type || 'general',
+          content: response,
+          raw: true,
+        };
+      }
+    } catch (error) {
+      console.error('Assist with prompt failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 构造完整提示词
+   */
+  constructPrompt(basePrompt, userCode, userProblem, options = {}) {
+    return `${basePrompt}
+
+用户问题描述：
+${userProblem}
+
+用户代码：
+\`\`\`${options.language || 'javascript'}
+${userCode}
+\`\`\`
+
+请用 JSON 格式返回你的分析结果。确保返回的是有效的 JSON。`;
+  }
+
+  /**
+   * 问题引导
+   */
+  async guideOnProblem(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'guide',
+      language: 'javascript',
+    });
+  }
+
+  /**
+   * 思路提示
+   */
+  async suggestIdea(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'idea',
+      language: 'javascript',
+      temperature: 0.5,
+    });
+  }
+
+  /**
+   * 代码纠错
+   */
+  async fixCode(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'code_fix',
+      language: 'javascript',
+      maxTokens: 3000,
+    });
+  }
+
+  /**
+   * 知识点识别
+   */
+  async identifyKnowledge(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'knowledge_tag',
+      language: 'javascript',
+    });
+  }
 }
 
 // 导出单例
