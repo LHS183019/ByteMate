@@ -11,6 +11,16 @@ console.log("OJ助手内容脚本已注入！");
     { key: "pet", label: "电子宠物" },
   ];
 
+  // 简单页面类型检测
+  function detectPageType() {
+    const href = location.href;
+    if (/\/solution\//.test(href) || /\/submission\//.test(href)) return 'result';
+    if (/\/submit\/?$/.test(href) || /\/submit\//.test(href) || document.querySelector('form[action*="submit"]') || document.querySelector('textarea') || document.querySelector('.CodeMirror')) return 'edit';
+    // 检查是否有题面主体
+    if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) return 'problem';
+    return 'other';
+  }
+
   function createMenu() {
     // 根容器
     const root = document.createElement("div");
@@ -30,8 +40,19 @@ console.log("OJ助手内容脚本已注入！");
     const menu = document.createElement("div");
     menu.className = "oj-helper-menu";
 
-    // 创建动作按钮
-    const actionButtons = features.map((f) => {
+    // 检测页面类型
+    const pageType = detectPageType();
+    
+    // 根据页面类型过滤可用的功能
+    const availableFeatures = features.filter((f) => {
+      if (f.key === 'guide') return pageType === 'problem'; //问题引导仅能在题目界面触发
+      if (f.key === 'hint') return pageType === 'problem'; //思路提示仅能在题目界面触发
+      if (f.key === 'fix') return pageType === 'result';  //代码纠错仅能在提交结果界面触发
+      return true; // recommend 和 pet 在任何页面都可用
+    });
+
+    // 创建动作按钮（仅显示可用的功能）
+    const actionButtons = availableFeatures.map((f) => {
       const b = document.createElement("button");
       b.className = "oj-helper-action";
       b.type = "button";
@@ -119,16 +140,6 @@ console.log("OJ助手内容脚本已注入！");
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") setExpanded(false);
     });
-
-    // 简单页面类型检测
-    function detectPageType() {
-      const href = location.href;
-      if (/\/solution\//.test(href) || /\/submission\//.test(href)) return 'result';
-      if (/\/submit\/?$/.test(href) || /\/submit\//.test(href) || document.querySelector('form[action*="submit"]') || document.querySelector('textarea') || document.querySelector('.CodeMirror')) return 'edit';
-      // 检查是否有题面主体
-      if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) return 'problem';
-      return 'other';
-    }
 
     // 规范化题目基准路径：把 /.../submit/... 或 /.../solution/... 等后缀去掉，返回以 / 结尾的 pathname
     function normalizeProblemPath(href) {
@@ -229,20 +240,7 @@ console.log("OJ助手内容脚本已注入！");
     // 点击动作时的处理：支持异步 getProblemContext 返回 Promise 的情况
     function onActionClick(key) {
       console.log("AI 助手 action:", key);
-      const pageType = detectPageType();
-      // 约束触发页面（guide -> problem; hint -> edit; fix -> result）
-      if (key === 'guide' && pageType !== 'problem') {
-        alert('问题引导仅能在题目界面触发，请先打开题目页面再使用。');
-        return;
-      }
-      if (key === 'hint' && pageType !== 'edit') {
-        alert('思路提示仅能在编辑（提交）界面触发，请在编辑界面使用。');
-        return;
-      }
-      if (key === 'fix' && pageType !== 'result') {
-        alert('代码纠错仅能在提交结果界面触发，请在提交结果页面使用。');
-        return;
-      }
+      // 页面类型检查已在按钮创建时处理，此处无需再次检查
 
       // 获取题目信息，可能返回对象或 Promise
       let maybe = null;

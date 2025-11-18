@@ -30,7 +30,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/inject-ui.js",
         "content/style.css",
         "assets/*",
         "dashboard/*",
