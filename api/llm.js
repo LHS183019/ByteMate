@@ -1,20 +1,39 @@
-const LLM_BACKEND_URL = 'https://your-backend-server.com/api/llm'; // 后端服务地址
+// 后端服务器地址（用户需要启动后端服务）
+const LLM_BACKEND_URL = 'http://localhost:3000/api/llm';
+const LLM_BACKEND_STREAM = 'http://localhost:3000/api/llm/stream';
+const LLM_MODELS_URL = 'http://localhost:3000/api/llm/models';
+const LLM_HEALTH_URL = 'http://localhost:3000/api/health';
 
 class LLMClient {
   constructor(config = {}) {
-    this.model = config.model || 'gpt-4'; // 默认模型
+    this.model = config.model || 'deepseek';
     this.timeout = config.timeout || 30000;
+    this.backendUrl = config.backendUrl || LLM_BACKEND_URL;
   }
 
   /**
-   * 调用 LLM - 通过后端服务器代理（避免暴露 API 密钥）
-   * @param {string} prompt - 用户提示词
-   * @param {object} options - 额外选项
-   * @returns {Promise<string>} - LLM 响应
+   * 检查后端服务健康状态
+   */
+  async checkHealth() {
+    try {
+      const response = await fetch(LLM_HEALTH_URL, {
+        method: 'GET',
+        timeout: 5000,
+      });
+      const data = await response.json();
+      return data.hasValidConfig;
+    } catch (error) {
+      console.error('Backend health check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 调用 LLM - 通过后端服务器代理
    */
   async chat(prompt, options = {}) {
     try {
-      const response = await fetch(LLM_BACKEND_URL, {
+      const response = await fetch(this.backendUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -24,17 +43,22 @@ class LLMClient {
           model: options.model || this.model,
           temperature: options.temperature || 0.7,
           maxTokens: options.maxTokens || 2000,
-          userId: await this.getUserId(), // 用于后端追踪和限流
+          userId: await this.getUserId(),
         }),
         signal: AbortSignal.timeout(this.timeout),
       });
 
       if (!response.ok) {
-        throw new Error(`LLM API error: ${response.status}`);
+        const error = await response.json();
+        throw new Error(error.error || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
-      return data.content || data.message;
+      if (!data.success) {
+        throw new Error(data.error || '请求失败');
+      }
+
+      return data.content;
     } catch (error) {
       console.error('LLM request failed:', error);
       throw error;
@@ -46,7 +70,7 @@ class LLMClient {
    */
   async streamChat(prompt, onChunk, options = {}) {
     try {
-      const response = await fetch(LLM_BACKEND_URL + '/stream', {
+      const response = await fetch(LLM_BACKEND_STREAM, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -58,15 +82,35 @@ class LLMClient {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
-        const chunk = decoder.decode(value);
-        onChunk(chunk);
+
+        const text = decoder.decode(value);
+        const lines = text.split('\n');
+
+        lines.forEach((line) => {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                onChunk(data.content);
+              }
+              if (data.done) {
+                onChunk(null); // 信号流结束
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        });
       }
     } catch (error) {
       console.error('Stream LLM request failed:', error);
@@ -75,7 +119,7 @@ class LLMClient {
   }
 
   /**
-   * 获取用户 ID（用于后端识别和限流）
+   * 获取用户 ID
    */
   async getUserId() {
     const { userId } = await chrome.storage.sync.get('userId');
@@ -90,17 +134,58 @@ class LLMClient {
   }
 
   /**
-   * 获取可用模型列表（从后端获取）
+   * 获取可用模型列表
    */
   async getAvailableModels() {
     try {
-      const response = await fetch(LLM_BACKEND_URL + '/models');
+      const response = await fetch(LLM_MODELS_URL);
       const data = await response.json();
       return data.models || [];
     } catch (error) {
       console.error('Failed to fetch models:', error);
-      return ['deepseek', 'qwen', 'zhipu'];
+      return [];
     }
+  }
+
+  /**
+   * 问题引导
+   */
+  async guideOnProblem(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'guide',
+      language: 'javascript',
+    });
+  }
+
+  /**
+   * 思路提示
+   */
+  async suggestIdea(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'idea',
+      language: 'javascript',
+    });
+  }
+
+  /**
+   * 代码纠错
+   */
+  async fixCode(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'code_fix',
+      language: 'javascript',
+      maxTokens: 3000,
+    });
+  }
+
+  /**
+   * 知识点识别
+   */
+  async identifyKnowledge(userCode, userProblem, prompt) {
+    return this.assistWithPrompt(prompt, userCode, userProblem, {
+      type: 'knowledge_tag',
+      language: 'javascript',
+    });
   }
 
   /**
@@ -158,48 +243,6 @@ ${userCode}
 \`\`\`
 
 请用 JSON 格式返回你的分析结果。确保返回的是有效的 JSON。`;
-  }
-
-  /**
-   * 问题引导
-   */
-  async guideOnProblem(userCode, userProblem, prompt) {
-    return this.assistWithPrompt(prompt, userCode, userProblem, {
-      type: 'guide',
-      language: 'javascript',
-    });
-  }
-
-  /**
-   * 思路提示
-   */
-  async suggestIdea(userCode, userProblem, prompt) {
-    return this.assistWithPrompt(prompt, userCode, userProblem, {
-      type: 'idea',
-      language: 'javascript',
-      temperature: 0.5,
-    });
-  }
-
-  /**
-   * 代码纠错
-   */
-  async fixCode(userCode, userProblem, prompt) {
-    return this.assistWithPrompt(prompt, userCode, userProblem, {
-      type: 'code_fix',
-      language: 'javascript',
-      maxTokens: 3000,
-    });
-  }
-
-  /**
-   * 知识点识别
-   */
-  async identifyKnowledge(userCode, userProblem, prompt) {
-    return this.assistWithPrompt(prompt, userCode, userProblem, {
-      type: 'knowledge_tag',
-      language: 'javascript',
-    });
   }
 }
 

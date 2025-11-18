@@ -1,0 +1,19 @@
+{
+  "name": "ai-coding-assistant-backend",
+  "version": "1.0.0",
+  "description": "Backend proxy for AI coding assistant plugin",
+  "main": "llm-proxy.js",
+  "scripts": {
+    "start": "node llm-proxy.js",
+    "dev": "nodemon llm-proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "axios": "^1.4.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
