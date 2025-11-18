@@ -10,6 +10,12 @@
 
 ![](./readme_asset/asset1.png)
 
+### Edge配置
+
+![](./readme_asset/edge_load.png)
+
+然后选择`bytemate`文件夹即可载入插件。
+
 
 ## 文件架构
 
