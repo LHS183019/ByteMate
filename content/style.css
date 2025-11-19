@@ -121,3 +121,393 @@
 	/* 保持像素风格 */
 }
 
+/* ==================== AI响应显示样式 ==================== */
+
+/* 覆盖层 - 半透明背景 */
+.oj-helper-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.7);
+	z-index: 2147483647;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* 内容容器 */
+.oj-helper-content {
+	background: white;
+	border: 4px solid #000;
+	border-radius: 12px;
+	padding: 20px;
+	max-width: 800px;
+	width: 90%;
+	max-height: 80vh;
+	overflow-y: auto;
+	/* 像素角效果 */
+	clip-path: polygon(
+		0% 8px, 8px 8px, 8px 0%,
+		calc(100% - 8px) 0%, calc(100% - 8px) 8px, 100% 8px,
+		100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%,
+		8px 100%, 8px calc(100% - 8px), 0% calc(100% - 8px)
+	);
+	/* 像素化 */
+	image-rendering: pixelated;
+}
+
+/* 关闭按钮 */
+.oj-helper-close {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	background: #ff4444;
+	color: white;
+	border: 2px solid #000;
+	border-radius: 50%;
+	width: 32px;
+	height: 32px;
+	font-size: 16px;
+	font-weight: bold;
+	cursor: pointer;
+	/* 像素风格 */
+	image-rendering: pixelated;
+}
+
+.oj-helper-close:hover {
+	background: #ff6666;
+}
+
+.oj-helper-close:active {
+	transform: scale(0.9);
+}
+
+/* 头部 */
+.oj-helper-header {
+	margin-bottom: 20px;
+	border-bottom: 2px solid #000;
+	padding-bottom: 10px;
+}
+
+.oj-helper-header h2 {
+	font-family: monospace;
+	font-size: 24px;
+	margin: 0;
+	text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+}
+
+/* 主体内容 */
+.oj-helper-body {
+	font-family: monospace;
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+/* 加载状态 */
+.oj-helper-loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 200px;
+}
+
+/* 加载动画 */
+.oj-helper-spinner {
+	width: 40px;
+	height: 40px;
+	border: 4px solid #f3f3f3;
+	border-top: 4px solid #000;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+	/* 像素风格 */
+	image-rendering: pixelated;
+}
+
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+/* 错误状态 */
+.oj-helper-error {
+	padding: 20px;
+	color: #d32f2f;
+}
+
+.oj-helper-error h2 {
+	margin-top: 0;
+	font-family: monospace;
+}
+
+.oj-helper-error p {
+	font-family: monospace;
+	font-size: 14px;
+}
+
+.oj-helper-error pre {
+	background: #f5f5f5;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	padding: 10px;
+	overflow-x: auto;
+	font-family: monospace;
+	font-size: 12px;
+	margin-top: 10px;
+}
+
+/* 文本内容 */
+.oj-helper-text {
+	font-family: monospace;
+	font-size: 14px;
+	margin: 12px 0;
+	line-height: 0.4;
+	white-space: pre-wrap;
+}
+
+/* Markdown样式 */
+.oj-helper-markdown {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.oj-helper-markdown h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 24px 0 16px 0;
+  color: #1a1a1a;
+  border-bottom: 1px solid #e8e8e8;
+  padding-bottom: 8px;
+}
+
+.oj-helper-markdown h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 20px 0 14px 0;
+  color: #1a1a1a;
+}
+
+.oj-helper-markdown h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 18px 0 12px 0;
+  color: #1a1a1a;
+}
+
+.oj-helper-markdown p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+/* 行内代码样式 */
+.oj-helper-markdown code {
+  background-color: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 85%;
+  color: #e83e8c;
+}
+
+.oj-helper-markdown strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.oj-helper-markdown em {
+  font-style: italic;
+}
+
+.oj-helper-markdown pre {
+  background-color: #282c34;
+  border-radius: 8px;
+  padding: 16px;
+  overflow: auto;
+  margin: 16px 0;
+  border: 1px solid #444;
+  position: relative;
+  line-height: 1.5;
+}
+
+.oj-helper-markdown pre code {
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: #abb2bf !important;
+  display: block !important;
+  white-space: pre !important;
+  word-wrap: normal !important;
+  overflow-x: auto !important;
+  tab-size: 2 !important;
+}
+
+/* 代码块语言标签样式 */
+.oj-helper-markdown pre::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #444;
+  color: #fff;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 0 8px 0 8px;
+  font-family: inherit;
+}
+
+/* 确保代码块在小屏幕上也能正常显示 */
+@media (max-width: 768px) {
+  .oj-helper-markdown pre {
+    padding: 12px;
+    margin: 12px 0;
+  }
+  
+  .oj-helper-markdown code {
+    font-size: 13px;
+  }
+}
+
+.oj-helper-markdown ul,
+.oj-helper-markdown ol {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.oj-helper-markdown li {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.oj-helper-markdown a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.oj-helper-markdown a:hover {
+  text-decoration: underline;
+}
+
+/* 各种结果渲染样式 */
+.oj-helper-guide, .oj-helper-idea, .oj-helper-code-fix, .oj-helper-knowledge {
+	font-family: monospace;
+}
+
+.oj-helper-guide h3, .oj-helper-idea h3, .oj-helper-code-fix h3, .oj-helper-knowledge h3 {
+	margin-top: 15px;
+	margin-bottom: 10px;
+	font-size: 18px;
+	font-weight: bold;
+	border-bottom: 2px solid #000;
+	padding-bottom: 5px;
+}
+
+.oj-helper-guide ol, .oj-helper-guide ul, .oj-helper-idea ul, .oj-helper-knowledge ul {
+	margin-left: 25px;
+	margin-bottom: 15px;
+}
+
+.oj-helper-guide li, .oj-helper-idea li, .oj-helper-knowledge li {
+	margin-bottom: 8px;
+}
+
+.approaches {
+	display: flex;
+	flex-direction: column;
+	gap: 15px;
+	margin-bottom: 15px;
+}
+
+.approach {
+	background: #f9f9f9;
+	border: 2px solid #000;
+	border-radius: 8px;
+	padding: 15px;
+	/* 像素角效果 */
+	clip-path: polygon(
+		0% 6px, 6px 6px, 6px 0%,
+		calc(100% - 6px) 0%, calc(100% - 6px) 6px, 100% 6px,
+		100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%,
+		6px 100%, 6px calc(100% - 6px), 0% calc(100% - 6px)
+	);
+}
+
+.approach h4 {
+	margin-top: 0;
+	font-size: 16px;
+	border-bottom: 1px solid #000;
+	padding-bottom: 5px;
+	margin-bottom: 10px;
+}
+
+.approach p {
+	margin-bottom: 8px;
+	font-size: 13px;
+}
+
+.tags {
+	margin-bottom: 15px;
+}
+
+.tag-category {
+	margin-bottom: 15px;
+}
+
+.tag-item {
+	display: inline-block;
+	background: #e3f2fd;
+	border: 1px solid #000;
+	border-radius: 4px;
+	padding: 5px 10px;
+	margin: 5px;
+	font-size: 12px;
+	/* 像素风格 */
+	image-rendering: pixelated;
+}
+
+.tag-item.relevance-高 {
+	background: #ffebee;
+}
+
+.tag-item.relevance-中 {
+	background: #fff8e1;
+}
+
+.tag-item.relevance-低 {
+	background: #e8f5e9;
+}
+
+/* 通用代码块样式 - 确保不与Markdown样式冲突 */
+pre:not(.oj-helper-markdown pre) {
+	background: #2d2d2d;
+	color: #f8f8f2;
+	border: 2px solid #000;
+	border-radius: 8px;
+	padding: 15px;
+	overflow-x: auto;
+	font-family: monospace;
+	font-size: 12px;
+	margin: 15px 0;
+	/* 像素风格 */
+	image-rendering: pixelated;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+	.oj-helper-content {
+		width: 95%;
+		margin: 10px;
+		padding: 15px;
+	}
+	
+	.oj-helper-header h2 {
+		font-size: 20px;
+	}
+	
+	.oj-helper-body {
+		font-size: 13px;
+	}
+}
+

@@ -17,60 +17,32 @@
 然后选择`bytemate`文件夹即可载入插件。
 
 
-## 文件架构
+## 文件架构 (2025/11/20 03:32 更新)
 
 ```
 ai-openjudge-helper/
 │
-├── manifest.json 
+├── manifest.json    // 插件入口声明文件（必备）
 |
-├── background/
-│   └── background.js
+├── background/     // 插件后台（Service Worker）
 │
-├── content/
-│   ├── content-script.js
-│   ├── inject-ui.js
-│   ├── ui.js
-│   └── style.css
+├── content/        // 注入到 OpenJudge 页面的脚本 (小猫)
 │
-├── api/
+├── api/            // 前端调用后端 API 的模块
 │   ├── llm.js
 │   ├── promptManager.js
 │   ├── aiAssistant.js
 │   └── storage.js
 |
-├── backend/
-│   ├── .env.example
-│   ├── llm-proxy.js
-│   └── package.js
+├── backend/        // 后端服务（Node.js）
 │
-├── prompts/
-│   ├── guide.txt
-│   ├── idea.txt
-│   ├── code_fix.txt
-│   └── knowledge_tag.txt
+├── prompts/        // 存放所有用于 LLM 的 prompt 模板
 │
-├── dashboard/
-│   ├── index.html
-│   ├── index.js
-│   ├── index.css
-│   ├── charts.js
-│   └── pet.js
+├── dashboard/      // 插件自己的独立网页（Dashboard）
 │
-├── popup/
-│   ├── popup.html
-│   ├── popup.js
-│   └── popup.css
+├── popup/          // 插件右上角小窗口
 │
-└── readme_assets/
-    ├── asset1.png
-    ├── asset2.png
-    ├── asset3.png
-    ├── ai_output.png
-    └── pet/
-        ├── pet_idle.json   (Lottie 动画或 gif)
-        ├── pet_happy.json
-        └── pet_sad.json
+└── readme_assets/  // 存放README.md中使用的图片
 ```
 
 ### 目录说明
@@ -122,6 +94,10 @@ ai-openjudge-helper/
 
 **assets /** 图标与宠物动画资源
 
+## 历史更新
+
+<details>
+<summary>Framework initialization(2025/11/14/12:11)</summary>
 
 ## 当前`development`的进展(2025/11/14/12:11)
 
@@ -238,6 +214,39 @@ ai-openjudge-helper/
 ```
 
 </details>
+</details>
+
+
+
+<details>
+
+<summary>Dashboard&popup进展(2025.11.18 22:40)</summary>
+
+## Dashboard&popup进展(2025.11.18 22:40)
+
+一、在基础框架下完成了dashboard页面和样式设计(index.html & index.css)，效果如下
+
+![](readme_asset/dashboard.png)
+
+主要模块:
+   （1）学习进度显示
+       1.今日学习情况（已完成题目数，学习时长，掌握知识点数）
+       2.近七天学习进度趋势
+       3.知识点掌握情况
+       4.最近练习显示
+    (2) 相似题目推荐
+
+二、index.js
+
+逻辑不太对，且需要storage的接口来显示学习进度和题目推荐等，后面再研究研究
+
+三、popup页面和样式设计完成
+  
+</details>
+
+
+<details>
+<summary>当前`ai-api`的进展(2025/11/19/13:27)</summary>
 
 # 当前`ai-api`的进展(2025/11/19/13:27)
 
@@ -279,27 +288,44 @@ ps. powershell中`npm`似乎无法正确解析，需要输入`npm.cmd`。
 - **模型选择是在后台完成的，而非用户自选**。
 - 未来考虑把api部署到服务器。
  
-## Dashboard&popup进展(2025.11.18 22:40)
+</details>
 
-一、在基础框架下完成了dashboard页面和样式设计(index.html & index.css)，效果如下
 
-![](readme_asset/dashboard.png)
+<details>
+<summary>LHS183019: 当前对content UI的进展(2025/11/20/3:23)</summary>
 
-主要模块:
-   （1）学习进度显示
-       1.今日学习情况（已完成题目数，学习时长，掌握知识点数）
-       2.近七天学习进度趋势
-       3.知识点掌握情况
-       4.最近练习显示
-    (2) 相似题目推荐
+# LHS183019: 当前对content UI的进展(2025/11/20/3:23)
 
-二、index.js
+## 完成的项目
 
-逻辑不太对，且需要storage的接口来显示学习进度和题目推荐等，后面再研究研究
+- [x] 把右下角浮窗设置成待机小猫
+- [x] 修改了menu的theme 
+- [x] 修改了menu的交互逻辑 -> click on才会出现menu
+- [ ] 新增对后端返回结果的处理窗口 **(阻塞)**
 
-三、popup页面和样式设计完成
-  
-          
-    
-    
-       
+## 新增和修改的文件
+
+- **assets/:** 把小猫的sprite sheet 放到了assets文件夹下
+- **content/:** 修改了.css 的样式，调整了 content-script.js 的交互逻辑
+
+## 效果展示
+
+- 待机小猫
+
+![](readme_asset/kitten1.png)
+
+- 点击menu后出现的窗口
+
+![](readme_asset/kitten2.png)
+
+</details>
+
+# 最新更新: merge了LLM API调用、content-script.js的修改、dashboard和popup的设计(2025/11/20/5:00)
+
+
+## so many BUG!!
+
+- [ ] 无法点开dashboard
+- [ ] popup的设定无法更新到后台
+- [ ] 后端无法正常返回结果(qwen请求貌似发送不成功, ds需要余额，只有zhipu works)
+- [ ] 后端返回结果无法正确加载入前端
