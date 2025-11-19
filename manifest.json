@@ -30,7 +30,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/style.css",
+        "content/*",
         "assets/*",
         "dashboard/*",
         "prompts/*"
