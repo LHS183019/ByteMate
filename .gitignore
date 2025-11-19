@@ -1,6 +1,6 @@
 # API 密钥 - 绝不上传
 backend/.env
-.env
+*.env
 .env.local
 
 # Node modules
