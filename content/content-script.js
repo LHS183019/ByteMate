@@ -26,15 +26,59 @@ console.log("OJ助手内容脚本已注入！");
     const root = document.createElement("div");
     root.id = "oj-helper-root";
 
-    // 主按钮
-    const main = document.createElement("button");
+    // 创建小猫元素替代按钮
+    const main = document.createElement("div");
     main.id = "oj-helper-btn";
     main.className = "oj-helper-main";
     main.setAttribute("aria-haspopup", "true");
     main.setAttribute("aria-expanded", "false");
     main.title = "AI 助手";
-    main.innerText = "AI";
-    main.type = "button";
+    main.setAttribute("role", "button");
+    main.setAttribute("tabindex", "0");
+    
+    // 加载小猫动画
+    function loadKittenFrames() {
+      const frameCount = 11; // 从0到10共11帧
+      const frames = [];
+      for (let i = 0; i < frameCount; i++) {
+        const framePath = chrome.runtime.getURL(`assets/kitten/idle_facing_left/pixil-frame-${i}.png`);
+        frames.push(framePath);
+      }
+      return frames;
+    }
+    
+    // 创建img元素用于显示小猫
+    const kittenImg = document.createElement("img");
+    kittenImg.className = "oj-helper-kitten";
+    kittenImg.alt = "AI助手小猫";
+    main.appendChild(kittenImg);
+    
+    // 实现小猫动画
+    const frames = loadKittenFrames();
+    let currentFrame = 0;
+    
+    function animateKitten() {
+      kittenImg.src = frames[currentFrame];
+      currentFrame = (currentFrame + 1) % frames.length;
+    }
+    
+    // 开始动画，每100毫秒切换一帧
+    animateKitten(); // 立即显示第一帧
+    const animationInterval = setInterval(animateKitten, 100);
+    
+    // 清理函数（当元素被移除时停止动画）
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          if (!document.body.contains(main)) {
+            clearInterval(animationInterval);
+            observer.disconnect();
+            break;
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     // 菜单容器
     const menu = document.createElement("div");

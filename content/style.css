@@ -1,26 +1,32 @@
-/* Styles for the floating AI helper button and expanded menu */
+/* Styles for the floating AI helper kitten and expanded menu */
 #oj-helper-btn {
 	position: fixed;
 	right: 20px;
 	bottom: 20px;
-	width: 48px;
-	height: 48px;
-	background: #1976d2;
-	color: #fff;
+	width: 150px;
+	height: 150px;
+	background: transparent;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 14px;
 	cursor: pointer;
 	z-index: 2147483647;
-	box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-	transition: transform 160ms ease, background 160ms ease;
+	transition: transform 160ms ease;
+	user-select: none;
 }
 
 #oj-helper-btn:focus {
 	outline: 2px solid rgba(25,118,210,0.25);
-	transform: scale(1.03);
+	transform: scale(1.05);
+}
+
+/* Kitten image styling */
+.oj-helper-kitten {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	image-rendering: pixelated; /* 保持像素风格 */
 }
 
 /* container for child action buttons */
