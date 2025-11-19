@@ -1,367 +1,417 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
+const { OpenAI } = require('openai');
 require('dotenv').config();
 
 const app = express();
-app.use(express.json());
-app.use(cors({
-  origin: ['chrome-extension://*', 'http://localhost:3000'],
-}));
+const PORT = process.env.PORT || 3000;
 
-// API 配置（从环境变量读取）
-const API_CONFIG = {
-  deepseek: {
-    url: process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1',
-    key: process.env.DEEPSEEK_API_KEY,
-    model: 'deepseek-chat',
-  },
-  zhipu: {
-    url: process.env.ZHIPU_API_URL || 'https://api.zhipuai.cn/v1',
-    key: process.env.ZHIPU_API_KEY,
-    model: 'glm-4',
-  },
-  qwen: {
-    url: process.env.QWEN_API_URL || 'https://dashscope.aliyuncs.com/api/v1',
-    key: process.env.QWEN_API_KEY,
-    model: 'qwen-max',
-  },
+app.use(cors());
+app.use(express.json());
+
+// 日志中间件
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  if (Object.keys(req.body).length > 0) {
+    console.log('Body:', JSON.stringify(req.body).substring(0, 200));
+  }
+  next();
+});
+
+// 初始化 OpenAI 兼容客户端
+const getLLMClient = () => {
+  const provider = process.env.LLM_PROVIDER || 'deepseek';
+
+  const configs = {
+    deepseek: {
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    },
+    qwen: {
+      apiKey: process.env.QWEN_API_KEY,
+      baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      model: process.env.QWEN_MODEL || 'qwen-plus',
+    },
+    zhipu: {
+      apiKey: process.env.ZHIPU_API_KEY,
+      baseURL: process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4',
+      model: process.env.ZHIPU_MODEL || 'glm-4',
+    },
+  };
+
+  const config = configs[provider];
+  if (!config) {
+    throw new Error(`LLM 提供商 ${provider} 未配置`);
+  }
+
+  if (!config.apiKey) {
+    throw new Error(`${provider.toUpperCase()}_API_KEY 缺失，请检查 .env 文件`);
+  }
+
+  console.log(`[LLM-CLIENT] Using ${provider} with model: ${config.model}`);
+  console.log(`[LLM-CLIENT] Base URL: ${config.baseURL}`);
+  console.log(`[LLM-CLIENT] API Key: ${config.apiKey.substring(0, 10)}...`);
+
+  return new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseURL,
+  });
 };
 
-const userRateLimits = new Map();
-const RATE_LIMIT = parseInt(process.env.RATE_LIMIT_PER_HOUR || '100');
+// 检查 API 配置
+const hasValidConfig = () => {
+  try {
+    getLLMClient();
+    return true;
+  } catch (error) {
+    console.error('[CONFIG-CHECK]', error.message);
+    return false;
+  }
+};
 
 /**
- * 调用 LLM 接口
+ * 测试端点 - 用于快速诊断
  */
-app.post('/api/llm', async (req, res) => {
+app.get('/api/test', (req, res) => {
+  const testInfo = {
+    timestamp: Date.now(),
+    provider: process.env.LLM_PROVIDER || 'deepseek',
+    hasApiKey: !!(
+      process.env.DEEPSEEK_API_KEY ||
+      process.env.QWEN_API_KEY ||
+      process.env.ZHIPU_API_KEY
+    ),
+    apiKeyLength: {
+      deepseek: process.env.DEEPSEEK_API_KEY?.length || 0,
+      qwen: process.env.QWEN_API_KEY?.length || 0,
+      zhipu: process.env.ZHIPU_API_KEY?.length || 0,
+    },
+    baseUrl: {
+      deepseek: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
+      qwen: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      zhipu: process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4',
+    },
+    models: {
+      deepseek: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      qwen: process.env.QWEN_MODEL || 'qwen-plus',
+      zhipu: process.env.ZHIPU_MODEL || 'glm-4',
+    },
+  };
+
+  res.json({
+    status: 'ok',
+    config: testInfo,
+    message: hasValidConfig()
+      ? 'LLM 服务已配置'
+      : 'LLM 服务未配置，请检查 .env 文件',
+  });
+});
+
+/**
+ * 简单的 LLM 测试端点
+ */
+app.post('/api/test-llm', async (req, res) => {
   try {
-    const { prompt, model = process.env.DEFAULT_MODEL || 'deepseek', temperature, maxTokens, userId } = req.body;
+    console.log('[TEST-LLM] Starting test...');
 
-    // 检查限流
-    if (!checkRateLimit(userId)) {
-      return res.status(429).json({ error: '请求过于频繁，请稍后再试' });
+    if (!hasValidConfig()) {
+      return res.status(503).json({
+        success: false,
+        error: 'LLM 未配置',
+        details: 'API Key 或 Base URL 缺失',
+      });
     }
 
-    // 验证 API 配置
-    if (!API_CONFIG[model]) {
-      return res.status(400).json({ error: `不支持的模型: ${model}` });
-    }
+    const client = getLLMClient();
+    const provider = process.env.LLM_PROVIDER || 'deepseek';
+    const model = process.env[`${provider.toUpperCase()}_MODEL`] ||
+      { deepseek: 'deepseek-chat', qwen: 'qwen-plus', zhipu: 'glm-4' }[provider];
 
-    if (!API_CONFIG[model].key) {
-      return res.status(500).json({ error: `模型 ${model} 未配置 API 密钥` });
-    }
+    console.log(`[TEST-LLM] Using model: ${model}`);
 
-    // 调用对应 API
-    let response;
-    switch (model) {
-      case 'deepseek':
-        response = await callDeepSeek(prompt, temperature, maxTokens);
-        break;
-      case 'zhipu':
-        response = await callZhipu(prompt, temperature, maxTokens);
-        break;
-      case 'qwen':
-        response = await callQwen(prompt, temperature, maxTokens);
-        break;
-      default:
-        return res.status(400).json({ error: `未知模型: ${model}` });
-    }
+    const response = await client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: '你好，请简短回复"我是AI助手"',
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 100,
+    });
+
+    const content = response.choices[0].message.content;
+    console.log('[TEST-LLM] Response received:', content);
 
     res.json({
       success: true,
-      model,
-      content: response,
-      timestamp: Date.now(),
+      message: 'LLM 测试成功',
+      content,
+      model: response.model,
+      provider,
     });
   } catch (error) {
-    console.error('LLM proxy error:', error);
+    console.error('[TEST-LLM] Error:', error.message);
+    console.error('[TEST-LLM] Error details:', error);
+
     res.status(500).json({
       success: false,
-      error: error.message || '模型请求失败',
+      error: error.message,
+      errorCode: error.code || 'UNKNOWN',
+      provider: process.env.LLM_PROVIDER || 'deepseek',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      troubleshooting: {
+        1: '检查 API Key 是否正确：https://platform.deepseek.com/api_keys',
+        2: '确认 API Key 有足够权限',
+        3: '检查模型名称是否正确',
+        4: '检查 Base URL 是否正确',
+        5: '确认网络连接正常',
+      },
     });
   }
 });
 
 /**
- * 流式返回
+ * 健康检查端点
+ */
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    hasValidConfig: hasValidConfig(),
+    provider: process.env.LLM_PROVIDER || 'deepseek',
+    timestamp: Date.now(),
+  });
+});
+
+/**
+ * 非流式调用 LLM
+ */
+app.post('/api/llm', async (req, res) => {
+  if (!hasValidConfig()) {
+    return res.status(503).json({
+      error: 'LLM 服务未配置',
+      success: false,
+    });
+  }
+
+  try {
+    const { prompt, model, temperature, maxTokens } = req.body;
+    const client = getLLMClient();
+    const provider = process.env.LLM_PROVIDER || 'deepseek';
+
+    const configMap = {
+      deepseek: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      qwen: process.env.QWEN_MODEL || 'qwen-plus',
+      zhipu: process.env.ZHIPU_MODEL || 'glm-4',
+    };
+
+    const selectedModel = model || configMap[provider];
+
+    console.log(`[LLM-REQUEST] Model: ${selectedModel}, Prompt length: ${prompt.length}`);
+
+    const response = await client.chat.completions.create({
+      model: selectedModel,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: temperature || 0.7,
+      max_tokens: maxTokens || 2000,
+    });
+
+    const content = response.choices[0]?.message?.content || '';
+
+    res.json({
+      success: true,
+      content,
+      model: response.model,
+      usage: response.usage,
+    });
+  } catch (error) {
+    console.error('[LLM-REQUEST] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      errorCode: error.code,
+    });
+  }
+});
+
+/**
+ * 流式调用 LLM
  */
 app.post('/api/llm/stream', async (req, res) => {
+  if (!hasValidConfig()) {
+    return res.status(503).json({
+      error: 'LLM 服务未配置',
+      success: false,
+    });
+  }
+
   try {
-    const { prompt, model = process.env.DEFAULT_MODEL || 'deepseek', userId } = req.body;
+    const { prompt, model } = req.body;
+    const client = getLLMClient();
+    const provider = process.env.LLM_PROVIDER || 'deepseek';
 
-    if (!checkRateLimit(userId)) {
-      return res.status(429).json({ error: '请求过于频繁' });
-    }
+    const configMap = {
+      deepseek: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      qwen: process.env.QWEN_MODEL || 'qwen-plus',
+      zhipu: process.env.ZHIPU_MODEL || 'glm-4',
+    };
 
-    if (!API_CONFIG[model] || !API_CONFIG[model].key) {
-      return res.status(400).json({ error: `模型未正确配置: ${model}` });
-    }
+    const selectedModel = model || configMap[provider];
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    let streamResponse;
-    switch (model) {
-      case 'deepseek':
-        streamResponse = await streamDeepSeek(prompt, res);
-        break;
-      case 'zhipu':
-        streamResponse = await streamZhipu(prompt, res);
-        break;
-      case 'qwen':
-        streamResponse = await streamQwen(prompt, res);
-        break;
-      default:
-        res.write(`data: ${JSON.stringify({ error: '未知模型' })}\n\n`);
-        res.end();
+    const stream = await client.chat.completions.create({
+      model: selectedModel,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      stream: true,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        res.write(`data: ${JSON.stringify({ content })}\n`);
+      }
+      if (chunk.choices[0]?.finish_reason === 'stop') {
+        res.write(`data: ${JSON.stringify({ done: true })}\n`);
+      }
     }
-  } catch (error) {
-    console.error('Stream error:', error);
-    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+
     res.end();
+  } catch (error) {
+    console.error('[STREAM-REQUEST] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 });
 
 /**
- * 获取可用模型列表和配置状态
+ * 获取可用模型列表
  */
 app.get('/api/llm/models', (req, res) => {
-  const models = [];
+  const models = {
+    deepseek: { id: 'deepseek-chat', name: 'DeepSeek Chat' },
+    qwen: { id: 'qwen-plus', name: 'Qwen Plus' },
+    zhipu: { id: 'glm-4', name: 'ZhiPu GLM-4' },
+  };
 
-  for (const [key, config] of Object.entries(API_CONFIG)) {
-    models.push({
-      id: key,
-      name: key.charAt(0).toUpperCase() + key.slice(1),
-      model: config.model,
-      configured: !!config.key,
-      url: config.url,
-    });
-  }
-
+  const provider = process.env.LLM_PROVIDER || 'deepseek';
   res.json({
-    models,
-    default: process.env.DEFAULT_MODEL || 'deepseek',
+    currentProvider: provider,
+    models: [models[provider]],
   });
 });
 
 /**
- * 健康检查
+ * 处理题目问题的统一端点
  */
-app.get('/api/health', (req, res) => {
-  const configuredModels = Object.entries(API_CONFIG)
-    .filter(([_, config]) => config.key)
-    .map(([key]) => key);
+app.post('/api/assist', async (req, res) => {
+  if (!hasValidConfig()) {
+    return res.status(503).json({
+      error: 'LLM 服务未配置',
+      success: false,
+    });
+  }
 
-  res.json({
-    status: 'ok',
-    configuredModels,
-    hasValidConfig: configuredModels.length > 0,
-  });
+  try {
+    const {
+      feature,
+      title,
+      statement,
+      currentCode,
+      samples,
+      problemId,
+      customPrompt,
+    } = req.body;
+
+    const basePrompt = customPrompt || `你是一个编程教师。\n`;
+    const fullPrompt = `${basePrompt}
+
+题目标题: ${title}
+题目描述: ${statement}
+
+当前用户代码:
+\`\`\`javascript
+${currentCode || '// 用户还未提交代码'}
+\`\`\`
+
+示例:
+${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: ${s.output}`).join('\n') : '无'}
+
+请用 JSON 格式返回你的分析结果。`;
+
+    const client = getLLMClient();
+    const provider = process.env.LLM_PROVIDER || 'deepseek';
+
+    const configMap = {
+      deepseek: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      qwen: process.env.QWEN_MODEL || 'qwen-plus',
+      zhipu: process.env.ZHIPU_MODEL || 'glm-4',
+    };
+
+    console.log(`[ASSIST] Feature: ${feature}, Problem: ${problemId}`);
+
+    const response = await client.chat.completions.create({
+      model: configMap[provider],
+      messages: [
+        {
+          role: 'user',
+          content: fullPrompt,
+        },
+      ],
+      temperature: 0.6,
+      max_tokens: 3000,
+    });
+
+    const content = response.choices[0]?.message?.content || '';
+
+    // 尝试解析 JSON
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (e) {
+      result = { content, raw: true };
+    }
+
+    res.json({
+      success: true,
+      feature,
+      problemId,
+      result,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    console.error('[ASSIST] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      errorCode: error.code,
+    });
+  }
 });
 
-/**
- * DeepSeek API 调用
- */
-async function callDeepSeek(prompt, temperature = 0.7, maxTokens = 2000) {
-  const config = API_CONFIG.deepseek;
-  try {
-    const response = await axios.post(
-      `${config.url}/chat/completions`,
-      {
-        model: config.model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: temperature || 0.7,
-        max_tokens: maxTokens || 2000,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.key}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-      }
-    );
-
-    return response.data.choices[0].message.content;
-  } catch (error) {
-    throw new Error(`DeepSeek API error: ${error.message}`);
-  }
-}
-
-/**
- * Zhipu API 调用
- */
-async function callZhipu(prompt, temperature = 0.7, maxTokens = 2000) {
-  const config = API_CONFIG.zhipu;
-  try {
-    const response = await axios.post(
-      `${config.url}/chat/completions`,
-      {
-        model: config.model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: temperature || 0.7,
-        max_tokens: maxTokens || 2000,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.key}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-      }
-    );
-
-    return response.data.choices[0].message.content;
-  } catch (error) {
-    throw new Error(`Zhipu API error: ${error.message}`);
-  }
-}
-
-/**
- * Qwen API 调用
- */
-async function callQwen(prompt, temperature = 0.7, maxTokens = 2000) {
-  const config = API_CONFIG.qwen;
-  try {
-    const response = await axios.post(
-      `${config.url}/services/aigc/text-generation/generation`,
-      {
-        model: config.model,
-        input: {
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-        },
-        parameters: {
-          temperature: temperature || 0.7,
-          max_tokens: maxTokens || 2000,
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.key}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-      }
-    );
-
-    return response.data.output.text;
-  } catch (error) {
-    throw new Error(`Qwen API error: ${error.message}`);
-  }
-}
-
-/**
- * DeepSeek 流式响应
- */
-async function streamDeepSeek(prompt, res) {
-  const config = API_CONFIG.deepseek;
-  try {
-    const response = await axios.post(
-      `${config.url}/chat/completions`,
-      {
-        model: config.model,
-        messages: [{ role: 'user', content: prompt }],
-        stream: true,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.key}`,
-          'Content-Type': 'application/json',
-        },
-        responseType: 'stream',
-        timeout: 30000,
-      }
-    );
-
-    response.data.on('data', (chunk) => {
-      const lines = chunk.toString().split('\n');
-      lines.forEach((line) => {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data && data !== '[DONE]') {
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices[0].delta.content || '';
-              if (content) {
-                res.write(`data: ${JSON.stringify({ content })}\n\n`);
-              }
-            } catch (e) {
-              // 忽略解析错误
-            }
-          }
-        }
-      });
-    });
-
-    response.data.on('end', () => {
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
-    });
-
-    response.data.on('error', (error) => {
-      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-      res.end();
-    });
-  } catch (error) {
-    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-    res.end();
-  }
-}
-
-async function streamZhipu(prompt, res) {
-  // 类似 streamDeepSeek 的实现
-  res.write(`data: ${JSON.stringify({ content: 'Zhipu streaming not yet implemented' })}\n\n`);
-  res.end();
-}
-
-async function streamQwen(prompt, res) {
-  // 类似 streamDeepSeek 的实现
-  res.write(`data: ${JSON.stringify({ content: 'Qwen streaming not yet implemented' })}\n\n`);
-  res.end();
-}
-
-/**
- * 限流检查
- */
-function checkRateLimit(userId) {
-  const now = Date.now();
-  const limit = userRateLimits.get(userId) || { count: 0, resetTime: now + 3600000 };
-
-  if (now > limit.resetTime) {
-    userRateLimits.set(userId, { count: 1, resetTime: now + 3600000 });
-    return true;
-  }
-
-  if (limit.count < RATE_LIMIT) {
-    limit.count++;
-    userRateLimits.set(userId, limit);
-    return true;
-  }
-
-  return false;
-}
-
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`LLM Proxy running on port ${PORT}`);
-  console.log('Configured models:', Object.keys(API_CONFIG).filter(k => API_CONFIG[k].key));
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`LLM Proxy Server running on http://localhost:${PORT}`);
+  console.log(`API Provider: ${process.env.LLM_PROVIDER || 'deepseek'}`);
+  console.log(`API configured: ${hasValidConfig() ? '✓ YES' : '✗ NO'}`);
+  console.log(`${'='.repeat(50)}\n`);
+  console.log(`📋 测试 API 配置:\n   curl http://localhost:${PORT}/api/test`);
+  console.log(`🧪 测试 LLM 调用:\n   curl -X POST http://localhost:${PORT}/api/test-llm`);
+  console.log(`❤️  健康检查:\n   curl http://localhost:${PORT}/api/health\n`);
 });
-
-module.exports = app;

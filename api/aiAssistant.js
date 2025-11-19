@@ -118,6 +118,27 @@ class AIAssistant {
   }
 
   /**
+   * 处理题目信息（从后端接收）
+   * @param {object} problemInfo - 后端提供的题目信息
+   * @returns {Promise<object>} - 规范化的 AI 输出
+   */
+  async processProblemInfo(problemInfo) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    try {
+      const prompt = this.prompts.getPrompt(problemInfo.feature);
+      const result = await this.llm.assistProblem(problemInfo, prompt);
+
+      return this.normalizeResponse(result, problemInfo.feature);
+    } catch (error) {
+      console.error('Process problem info failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 规范化响应格式
    */
   normalizeResponse(result, type) {

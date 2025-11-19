@@ -36,6 +36,10 @@
         "prompts/knowledge_tag.txt"
       ],
       "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["content/style.css", "content/ui.js", "api/**/*.js"],
+      "matches": ["<all_urls>"]
     }
   ]
 }

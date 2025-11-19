@@ -9,6 +9,7 @@ class LLMClient {
     this.model = config.model || 'deepseek';
     this.timeout = config.timeout || 30000;
     this.backendUrl = config.backendUrl || LLM_BACKEND_URL;
+    console.log('[LLMClient] Initialized with backend URL:', this.backendUrl);
   }
 
   /**
@@ -243,6 +244,64 @@ ${userCode}
 \`\`\`
 
 请用 JSON 格式返回你的分析结果。确保返回的是有效的 JSON。`;
+  }
+
+  /**
+   * 处理题目辅助请求（统一接口）
+   */
+  async assistProblem(problemInfo, customPrompt = null) {
+    try {
+      console.log('[assistProblem] Starting request with:', {
+        feature: problemInfo.feature,
+        problemId: problemInfo.problemId,
+        codeLength: problemInfo.currentCode?.length,
+      });
+
+      const assistUrl = `${this.backendUrl.replace('/api/llm', '')}/api/assist`;
+      console.log('[assistProblem] URL:', assistUrl);
+
+      const response = await fetch(assistUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          feature: problemInfo.feature,
+          title: problemInfo.title,
+          statement: problemInfo.statement,
+          currentCode: problemInfo.currentCode || '',
+          samples: problemInfo.samples || [],
+          problemId: problemInfo.problemId,
+          customPrompt,
+          userId: await this.getUserId(),
+        }),
+        signal: AbortSignal.timeout(this.timeout),
+      });
+
+      console.log('[assistProblem] Response status:', response.status);
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('[assistProblem] Error response:', error);
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('[assistProblem] Success response:', {
+        success: data.success,
+        feature: data.feature,
+        resultType: typeof data.result,
+      });
+
+      if (!data.success) {
+        throw new Error(data.error || '请求失败');
+      }
+
+      return data.result;
+    } catch (error) {
+      console.error('[assistProblem] Error:', error);
+      throw error;
+    }
   }
 }
 
