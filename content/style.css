@@ -1,4 +1,4 @@
-/* Styles for the floating AI helper kitten and expanded menu */
+/* Styles for the floating AI helper kitten and expanded menu (点击交互，像素风格) */
 #oj-helper-btn {
 	position: fixed;
 	right: 20px;
@@ -17,8 +17,13 @@
 }
 
 #oj-helper-btn:focus {
-	outline: 2px solid rgba(25,118,210,0.25);
+	outline: none;
 	transform: scale(1.05);
+}
+
+#oj-helper-btn:active {
+	transform: scale(0.95);
+	/* 点击时的视觉反馈 */
 }
 
 /* Kitten image styling */
@@ -31,9 +36,9 @@
 
 /* container for child action buttons */
 .oj-helper-menu {
-	position: fixed;
-	right: 20px;
-	bottom: 80px;
+  position: fixed;
+  right: 120px; /* 进一步调整为更靠左的位置 */
+  bottom: 170px; /* 调整为小猫高度+一些间距，确保不重叠 */
 	display: flex;
 	flex-direction: column-reverse;
 	gap: 10px;
@@ -46,19 +51,35 @@
 	pointer-events: auto;
 }
 
+/* 只有在菜单展开时，按钮才可点击 */
+.oj-helper-menu.expanded .oj-helper-action {
+	pointer-events: auto;
+}
+
+/* 像素风格的菜单按钮样式 */
 .oj-helper-action {
 	background: #fff;
-	color: #222;
-	padding: 8px 12px;
-	border-radius: 6px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+	color: #000;
+	padding: 10px 14px;
+	border: 3px solid #000;
 	font-size: 13px;
+	font-family: monospace;
+	font-weight: bold;
 	cursor: pointer;
-	transform-origin: right center;
+	transform-origin: center right; /* 修改为中心右侧，与新位置更匹配 */
 	transition: opacity 140ms ease, transform 160ms ease;
 	opacity: 0;
 	transform: translateY(6px) scale(0.98);
-	pointer-events: auto;
+	/* 像素角效果 */
+	clip-path: polygon(
+		0% 4px, 4px 4px, 4px 0%,
+		calc(100% - 4px) 0%, calc(100% - 4px) 4px, 100% 4px,
+		100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+		4px 100%, 4px calc(100% - 4px), 0% calc(100% - 4px)
+	);
+	/* 像素化文本 */
+	image-rendering: pixelated;
+	text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
 }
 
 .oj-helper-menu.expanded .oj-helper-action {
@@ -68,14 +89,35 @@
 
 .oj-helper-action:focus {
 	outline: 2px solid rgba(25,118,210,0.2);
+	transform: translateY(0) scale(1.05);
+}
+
+/* 点击时的像素风格交互效果 */
+.oj-helper-action:active {
+	transform: translateY(0) scale(0.95);
+	transition: transform 0.1s;
 }
 
 /* small label for icon-only appearance on narrow screens */
 @media (max-width: 480px) {
 	#oj-helper-btn { width: 44px; height: 44px; }
-	.oj-helper-action { padding: 8px 10px; font-size: 12px; }
+	.oj-helper-action { 
+		padding: 8px 10px; 
+		font-size: 12px; 
+		border-width: 2px; /* 移动端调整边框粗细 */
+		/* 移动端像素角效果 */
+		clip-path: polygon(
+			0% 3px, 3px 3px, 3px 0%,
+			calc(100% - 3px) 0%, calc(100% - 3px) 3px, 100% 3px,
+			100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+			3px 100%, 3px calc(100% - 3px), 0% calc(100% - 3px)
+		);
+	}
 }
 
 /* touch-friendly: increase hit area */
-.oj-helper-action.touch { padding: 12px 14px; }
+.oj-helper-action.touch { 
+	padding: 12px 14px; 
+	/* 保持像素风格 */
+}
 
