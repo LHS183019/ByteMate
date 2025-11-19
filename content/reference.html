@@ -1,0 +1,313 @@
+<html>
+<head>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #0F0F1B;
+            font-family: monospace;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            height: 700px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(15, 15, 27, 0.3),
+                rgba(15, 15, 27, 0.3) 5px,
+                rgba(20, 20, 35, 0.3) 5px,
+                rgba(20, 20, 35, 0.3) 10px
+            );
+            border-radius: 10px;
+        }
+
+        .screen {
+            width: 80%;
+            background: #1a1a2e;
+            padding: 20px;
+            border: 4px solid #3F3F63;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        .title {
+            font-size: 2rem;
+            color: #ff6b6b;
+            text-shadow: 2px 2px 0 #000;
+            margin-bottom: 20px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            animation: textFlicker 3s infinite alternate;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: #70e1f5;
+            margin-bottom: 40px;
+            line-height: 1.5;
+        }
+
+        .cta-button {
+            position: relative;
+            width: 220px;
+            height: 70px;
+            background: none;
+            border: none;
+            margin: 20px auto;
+            cursor: pointer;
+            display: block;
+            transition: transform 0.2s;
+            transform-style: preserve-3d;
+        }
+
+        .button-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #fff;
+            background-color: #ff0062;
+            border: 4px solid #fff;
+            letter-spacing: 1px;
+            backface-visibility: hidden;
+            transform-style: preserve-3d;
+        }
+
+        .pixel-corners {
+            clip-path: polygon(
+                0% 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0%,
+                calc(100% - 8px) 0%, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+                100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%,
+                8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0% calc(100% - 8px)
+            );
+        }
+
+        .button-shadow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: #660029;
+            transform: translateZ(-10px) translateY(10px);
+            filter: blur(2px);
+            opacity: 0.5;
+            clip-path: polygon(
+                0% 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0%,
+                calc(100% - 8px) 0%, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+                100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%,
+                8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0% calc(100% - 8px)
+            );
+        }
+
+        .button-inner {
+            font-family: 'Press Start 2P', cursive, monospace;
+            font-size: 16px;
+            position: relative;
+            z-index: 2;
+            text-shadow: 2px 2px 0 #000;
+            padding: 12px 0;
+        }
+
+        .button-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(255, 0, 98, 0), rgba(255, 0, 98, 0.2));
+            opacity: 0;
+            transition: opacity 0.3s;
+            clip-path: polygon(
+                0% 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0%,
+                calc(100% - 8px) 0%, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+                100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%,
+                8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0% calc(100% - 8px)
+            );
+        }
+
+        .cta-button:hover {
+            transform: translateZ(5px) translateY(-5px);
+        }
+
+        .cta-button:hover .button-glow {
+            opacity: 1;
+        }
+
+        .cta-button:active {
+            transform: translateZ(0) translateY(0);
+            transition: transform 0.1s;
+        }
+
+        .cta-button:active .button-shadow {
+            transform: translateZ(-5px) translateY(5px);
+            transition: transform 0.1s;
+        }
+
+        .pixel-border {
+            position: relative;
+            padding: 4px;
+            background-color: #fff;
+            width: 100%;
+            height: 100%;
+        }
+
+        .pixel-border::before {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            right: 4px;
+            bottom: 4px;
+            background-color: #ff0062;
+        }
+
+        @keyframes blinkAnimation {
+            0%, 45%, 55%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        @keyframes pixelShift {
+            0%, 100% {
+                background-position: 0 0;
+            }
+            25% {
+                background-position: 1px 0;
+            }
+            50% {
+                background-position: 1px 1px;
+            }
+            75% {
+                background-position: 0 1px;
+            }
+        }
+
+        @keyframes textFlicker {
+            0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+                opacity: 1;
+                text-shadow: 0 0 5px #ff6b6b, 0 0 10px #ff6b6b, 0 0 15px #ff6b6b;
+            }
+            20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+                opacity: 0.8;
+                text-shadow: none;
+            }
+        }
+
+        .pixels {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), 
+                radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px;
+            pointer-events: none;
+            animation: pixelShift 2s infinite steps(1);
+        }
+
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 50%,
+                rgba(0, 0, 0, 0.1) 51%,
+                transparent 51%
+            );
+            background-size: 100% 8px;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        @media (max-width: 700px) {
+            .title {
+                font-size: 1.5rem;
+            }
+            
+            .subtitle {
+                font-size: 0.9rem;
+                margin-bottom: 30px;
+            }
+            
+            .cta-button {
+                width: 180px;
+                height: 60px;
+            }
+            
+            .button-inner {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="screen">
+            <h1 class="title">RETRO ARCADE QUEST</h1>
+            <p class="subtitle">Insert coin to unlock 8-bit adventures. Conquer the digital realm one pixel at a time!</p>
+            
+            <button class="cta-button" id="pixelButton">
+                <div class="button-face pixel-corners">
+                    <div class="button-inner">INSERT COIN</div>
+                    <div class="button-glow"></div>
+                </div>
+                <div class="button-shadow"></div>
+            </button>
+            
+            <div class="pixels"></div>
+            <div class="scanline"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const button = document.getElementById('pixelButton');
+            const buttonInner = button.querySelector('.button-inner');
+            
+            // Blink animation logic
+            let blinkInterval;
+            
+            button.addEventListener('mouseenter', () => {
+                buttonInner.style.animation = 'blinkAnimation 0.5s infinite';
+                
+                // Add pixel movement on hover
+                button.querySelector('.button-face').style.backgroundImage = 'radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px)';
+                button.querySelector('.button-face').style.backgroundSize = '4px 4px';
+                button.querySelector('.button-face').style.animation = 'pixelShift 0.8s infinite steps(1)';
+                
+                // Add CRT scan effect
+                const scan = document.createElement('div');
+                scan.style.position = 'absolute';
+                scan.style.top = '0';
+                scan.style.left = '0';
+                scan.style.width = '100%';
+                scan.style.height = '2px';
+                scan.style.background …

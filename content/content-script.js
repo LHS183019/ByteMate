@@ -65,28 +65,105 @@ console.log("OJ助手内容脚本已注入！");
     { key: "guide", label: "问题引导" },
     { key: "hint", label: "思路提示" },
     { key: "fix", label: "代码纠错" },
-    { key: "recommend", label: "知识推荐" },
-    { key: "pet", label: "电子宠物" },
+    { key: "recommend", label: "知识推荐" }
   ];
+
+  // 简单页面类型检测
+  function detectPageType() {
+    const href = location.href;
+    if (/\/solution\//.test(href) || /\/submission\//.test(href)) return 'result';
+    if (/\/submit\/?$/.test(href) || /\/submit\//.test(href) || document.querySelector('form[action*="submit"]') || document.querySelector('textarea') || document.querySelector('.CodeMirror')) return 'edit';
+    // 检查是否有题面主体
+    if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) return 'problem';
+    return 'other';
+  }
 
   function createMenu() {
     const root = document.createElement("div");
     root.id = "oj-helper-root";
 
-    const main = document.createElement("button");
+    // 创建小猫元素替代按钮
+    const main = document.createElement("div");
     main.id = "oj-helper-btn";
     main.className = "oj-helper-main";
     main.setAttribute("aria-haspopup", "true");
     main.setAttribute("aria-expanded", "false");
     main.title = "AI 助手";
-    main.innerText = "AI";
-    main.type = "button";
+    main.setAttribute("role", "button");
+    main.setAttribute("tabindex", "0");
+    
+    // 加载小猫动画
+    function loadKittenFrames(animationType = 'speaking') {
+      const frameCount = 11; // 从0到10共11帧
+      const frames = [];
+      const directory = animationType === 'speaking' ? 'speaking_facing_left' : 'idle_facing_left';
+      for (let i = 0; i < frameCount; i++) {
+        const framePath = chrome.runtime.getURL(`assets/kitten/${directory}/pixil-frame-${i}.png`);
+        frames.push(framePath);
+      }
+      return frames;
+    }
+    
+    // 创建img元素用于显示小猫
+    const kittenImg = document.createElement("img");
+    kittenImg.className = "oj-helper-kitten";
+    kittenImg.alt = "AI助手小猫";
+    main.appendChild(kittenImg);
+    
+    // 实现小猫动画
+    let currentAnimationType = 'idle'; // 初始为idle动画
+    let frames = loadKittenFrames(currentAnimationType);
+    let currentFrame = 0;
+    
+    // 添加点击事件监听器，在speaking和idle动画之间来回切换
+    main.addEventListener('click', function() {
+      // 在speaking和idle动画之间切换
+      currentAnimationType = currentAnimationType === 'speaking' ? 'idle' : 'speaking';
+      // 加载对应动画帧
+      frames = loadKittenFrames(currentAnimationType);
+      // 重置当前帧索引，确保从第一帧开始
+      currentFrame = 0;
+    });
+    
+    function animateKitten() {
+      kittenImg.src = frames[currentFrame];
+      currentFrame = (currentFrame + 1) % frames.length;
+    }
+    
+    // 开始动画，每100毫秒切换一帧
+    animateKitten(); // 立即显示第一帧
+    const animationInterval = setInterval(animateKitten, 100);
+    
+    // 清理函数（当元素被移除时停止动画）
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          if (!document.body.contains(main)) {
+            clearInterval(animationInterval);
+            observer.disconnect();
+            break;
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     const menu = document.createElement("div");
     menu.className = "oj-helper-menu";
 
-    // 创建动作按钮
-    const actionButtons = features.map((f) => {
+    // 检测页面类型
+    const pageType = detectPageType();
+    
+    // 根据页面类型过滤可用的功能
+    const availableFeatures = features.filter((f) => {
+      if (f.key === 'guide') return pageType === 'problem'; //问题引导仅能在题目界面触发
+      if (f.key === 'hint') return pageType === 'problem'; //思路提示仅能在题目界面触发
+      if (f.key === 'fix') return pageType === 'result';  //代码纠错仅能在提交结果界面触发
+      return true; // recommend 和 pet 在任何页面都可用
+    });
+
+    // 创建动作按钮（仅显示可用的功能）
+    const actionButtons = availableFeatures.map((f) => {
       const b = document.createElement("button");
       b.className = "oj-helper-action";
       b.type = "button";
@@ -97,6 +174,15 @@ console.log("OJ助手内容脚本已注入！");
       b.setAttribute("aria-label", f.label);
       b.addEventListener("click", (e) => {
         e.stopPropagation();
+        // 切换回idle动画
+        currentAnimationType = 'idle';
+        // 加载idle动画帧
+        frames = loadKittenFrames(currentAnimationType);
+        // 重置当前帧索引，确保从第一帧开始
+        currentFrame = 0;
+        // 关闭菜单
+        setExpanded(false);
+        // 执行按钮功能
         onActionClick(f.key);
       });
       b.addEventListener("keydown", (ev) => {
@@ -111,8 +197,7 @@ console.log("OJ助手内容脚本已注入！");
 
     // 状态和行为控制
     let expanded = false;
-    let hoverTimeout = null;
-
+    
     function setExpanded(val) {
       expanded = !!val;
       if (expanded) {
@@ -124,29 +209,28 @@ console.log("OJ助手内容脚本已注入！");
       }
     }
 
-    // Hover 行为（桌面）
-    main.addEventListener("mouseenter", () => {
-      clearTimeout(hoverTimeout);
-      setExpanded(true);
-    });
-    main.addEventListener("mouseleave", () => {
-      hoverTimeout = setTimeout(() => setExpanded(false), 300);
-    });
-    menu.addEventListener("mouseenter", () => {
-      clearTimeout(hoverTimeout);
-      setExpanded(true);
-    });
-    menu.addEventListener("mouseleave", () => {
-      hoverTimeout = setTimeout(() => setExpanded(false), 300);
-    });
-
-    // 点击切换（移动端/触摸）
-    let touchToggle = false;
+    // 点击切换菜单状态（所有设备统一处理）
     main.addEventListener("click", (e) => {
-      if (isTouchDevice()) {
-        touchToggle = true;
-        setExpanded(!expanded);
+      e.stopPropagation(); // 防止点击事件冒泡
+      setExpanded(!expanded);
+    });
+    
+    // 点击文档其他区域关闭菜单并切换回idle动画
+    document.addEventListener("click", () => {
+      if (expanded) {
+        setExpanded(false);
+        // 切换回idle动画
+        currentAnimationType = 'idle';
+        // 加载idle动画帧
+        frames = loadKittenFrames(currentAnimationType);
+        // 重置当前帧索引，确保从第一帧开始
+        currentFrame = 0;
       }
+    });
+    
+    // 阻止菜单内部点击关闭菜单
+    menu.addEventListener("click", (e) => {
+      e.stopPropagation();
     });
 
     // 键盘支持
@@ -172,15 +256,6 @@ console.log("OJ助手内容脚本已注入！");
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") setExpanded(false);
     });
-
-    // 简单页面类型检测
-    function detectPageType() {
-      const href = location.href;
-      if (/\/solution\//.test(href) || /\/submission\//.test(href)) return 'result';
-      if (/\/submit\/?$/.test(href) || /\/submit\//.test(href) || document.querySelector('form[action*="submit"]') || document.querySelector('textarea') || document.querySelector('.CodeMirror')) return 'edit';
-      if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) return 'problem';
-      return 'other';
-    }
 
     // 规范化题目基准路径：把 /.../submit/... 或 /.../solution/... 等后缀去掉，返回以 / 结尾的 pathname
     function normalizeProblemPath(href) {
@@ -240,20 +315,7 @@ console.log("OJ助手内容脚本已注入！");
     // 点击动作时的处理
     function onActionClick(key) {
       console.log("AI 助手 action:", key);
-      const pageType = detectPageType();
-      
-      if (key === 'guide' && pageType !== 'problem') {
-        alert('问题引导仅能在题目界面触发');
-        return;
-      }
-      if (key === 'hint' && pageType !== 'edit') {
-        alert('思路提示仅能在编辑界面触发');
-        return;
-      }
-      if (key === 'fix' && pageType !== 'result') {
-        alert('代码纠错仅能在提交结果界面触发');
-        return;
-      }
+      // 页面类型检查已在按钮创建时处理，此处无需再次检查
 
       let maybe = null;
       try { maybe = getProblemContext(); } catch (e) { maybe = {}; }
@@ -333,7 +395,8 @@ console.log("OJ助手内容脚本已注入！");
         handleContext(maybe);
       }
 
-      if (isTouchDevice() || touchToggle) setExpanded(false);
+      // 点击菜单选项后收起菜单
+      setExpanded(false);
     }
 
     // 将解析逻辑拆分为可以对任意 Document 运行的函数（用于 fetch 回退解析）
