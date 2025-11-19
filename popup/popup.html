@@ -1,13 +1,105 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>AI OpenJudge Helper</title>
-	<link rel="stylesheet" href="popup.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ByteMate - 学习助手</title>
+    <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-	<button id="goto-dashboard">学习进度 Dashboard</button>
-	<script src="popup.js"></script>
+    <div class="popup-container">
+        <!-- 头部 -->
+        <header class="popup-header">
+            <h1 class="popup-title">ByteMate</h1>
+            <p class="popup-subtitle">编程学习助手</p>
+        </header>
+
+        <!-- 主要内容区域 -->
+        <main class="popup-main">
+            <!-- 模型选择区域 -->
+            <section class="settings-section">
+                <div class="section-title">
+                    <span class="icon">🤖</span>
+                    <h2>模型设置</h2>
+                </div>
+                <div class="model-selector">
+                    <label for="model-select">选择模型：</label>
+                    <select id="model-select" class="select-input">
+                        <option value="openai">OpenAI GPT-4</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="zhipu">Zhipu (智谱)</option>
+                        <option value="qwen">Qwen (通义千问)</option>
+                        <option value="groq">Groq</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- API Key 输入区域 -->
+            <section class="settings-section">
+                <div class="section-title">
+                    <span class="icon">🔑</span>
+                    <h2>API 配置</h2>
+                </div>
+                <div class="api-input-group">
+                    <label for="api-key-input">API Key：</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="password" 
+                            id="api-key-input" 
+                            class="text-input" 
+                            placeholder="输入你的 API Key"
+                            maxlength="200"
+                        >
+                        <button id="toggle-password-btn" class="toggle-btn" title="显示/隐藏">👁️</button>
+                    </div>
+                    <small class="input-hint">你的 API Key 将被保存到本地浏览器存储中</small>
+                </div>
+            </section>
+
+            <!-- 学习情况概览 -->
+            <section class="settings-section">
+                <div class="section-title">
+                    <span class="icon">📊</span>
+                    <h2>今日学习情况</h2>
+                </div>
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <div class="stat-label">已解决</div>
+                        <div class="stat-value" id="solved-count">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">获得帮助</div>
+                        <div class="stat-value" id="helped-count">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">新学知识点</div>
+                        <div class="stat-value" id="tags-count">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 操作按钮区域 -->
+            <section class="actions-section">
+                <button id="save-btn" class="action-btn btn-primary">
+                    <span class="btn-icon">💾</span>
+                    保存设置
+                </button>
+                <button id="dashboard-btn" class="action-btn btn-secondary">
+                    <span class="btn-icon">📈</span>
+                    查看Dashboard
+                </button>
+            </section>
+
+            <!-- 状态提示区域 -->
+            <div id="status-message" class="status-message"></div>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="popup-footer">
+            <p>版本 1.0.0 | <a href="#" id="help-link">帮助</a></p>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
 </body>
 </html>
