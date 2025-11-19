@@ -1,7 +1,65 @@
 console.log("OJ助手内容脚本已注入！");
 
 (function () {
-  if (document.getElementById("oj-helper-root")) return; // 防止重复
+  if (document.getElementById("oj-helper-root")) return;
+
+  // 先加载 UI 管理器
+  let uiManager = null;
+
+  function loadUIManager() {
+    return new Promise((resolve) => {
+      if (uiManager) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('content/ui.js');
+      script.onload = () => {
+        // ui.js 加载后，uiManager 会被定义到 window 上
+        if (typeof window.uiManager !== 'undefined') {
+          uiManager = window.uiManager;
+          console.log('[Content-Script] UIManager loaded');
+          resolve();
+        } else {
+          console.error('[Content-Script] UIManager not found after script load');
+          resolve(); // 继续执行，使用降级方案
+        }
+      };
+      script.onerror = () => {
+        console.error('[Content-Script] Failed to load ui.js');
+        resolve(); // 继续执行，使用降级方案
+      };
+      (document.head || document.documentElement).appendChild(script);
+    });
+  }
+
+  // 降级方案：如果 uiManager 未加载，使用简单的 alert
+  function showLoading(message = 'AI 正在思考中...') {
+    if (uiManager && uiManager.showLoading) {
+      uiManager.showLoading(message);
+    } else {
+      console.log('[Content-Script] Loading:', message);
+    }
+  }
+
+  function showResponse(feature, result) {
+    if (uiManager && uiManager.showResponse) {
+      uiManager.showResponse(feature, result);
+    } else {
+      console.log('[Content-Script] Response:', { feature, result });
+      alert(`[${feature}]\n${JSON.stringify(result, null, 2)}`);
+    }
+  }
+
+  function showError(message, error = null) {
+    if (uiManager && uiManager.showError) {
+      uiManager.showError(message, error);
+    } else {
+      console.error('[Content-Script] Error:', message, error);
+      alert(`错误: ${message}`);
+    }
+  }
 
   const features = [
     { key: "guide", label: "问题引导" },
@@ -12,11 +70,9 @@ console.log("OJ助手内容脚本已注入！");
   ];
 
   function createMenu() {
-    // 根容器
     const root = document.createElement("div");
     root.id = "oj-helper-root";
 
-    // 主按钮
     const main = document.createElement("button");
     main.id = "oj-helper-btn";
     main.className = "oj-helper-main";
@@ -26,7 +82,6 @@ console.log("OJ助手内容脚本已注入！");
     main.innerText = "AI";
     main.type = "button";
 
-    // 菜单容器
     const menu = document.createElement("div");
     menu.className = "oj-helper-menu";
 
@@ -88,7 +143,6 @@ console.log("OJ助手内容脚本已注入！");
     // 点击切换（移动端/触摸）
     let touchToggle = false;
     main.addEventListener("click", (e) => {
-      // 如果是触摸设备，点击切换展开；桌面点击不关闭（除非已展开）
       if (isTouchDevice()) {
         touchToggle = true;
         setExpanded(!expanded);
@@ -101,7 +155,6 @@ console.log("OJ助手内容脚本已注入！");
         e.preventDefault();
         setExpanded(!expanded);
         if (!expanded) {
-          // focus first action
           setTimeout(() => actionButtons[0]?.focus(), 0);
         }
       } else if (e.key === "ArrowUp") {
@@ -125,7 +178,6 @@ console.log("OJ助手内容脚本已注入！");
       const href = location.href;
       if (/\/solution\//.test(href) || /\/submission\//.test(href)) return 'result';
       if (/\/submit\/?$/.test(href) || /\/submit\//.test(href) || document.querySelector('form[action*="submit"]') || document.querySelector('textarea') || document.querySelector('.CodeMirror')) return 'edit';
-      // 检查是否有题面主体
       if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) return 'problem';
       return 'other';
     }
@@ -160,7 +212,6 @@ console.log("OJ助手内容脚本已注入！");
       }
       const aceEl = document.querySelector('.ace_text-input'); if (aceEl && aceEl.value) return aceEl.value;
       const mon = document.querySelector('.monaco-editor textarea'); if (mon && mon.value) return mon.value;
-      // 结果页：源代码通常在 <pre class="sh_cpp"> 或其它带语法高亮类的 pre 中
       const codePre = document.querySelector('pre[class*="sh_"] , pre.sh_cpp, pre.code, .submission-code pre, .code pre');
       if (codePre) return codePre.innerText || codePre.textContent || '';
       return '';
@@ -186,69 +237,27 @@ console.log("OJ助手内容脚本已注入！");
       return '';
     }
 
-    // 在页面上显示一个临时覆盖层用于测试展示 JSON
-    function showJSONOverlay(obj) {
-      try {
-        const raw = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
-        let overlay = document.getElementById('oj-helper-json-overlay');
-        if (!overlay) {
-          overlay = document.createElement('pre');
-          overlay.id = 'oj-helper-json-overlay';
-          overlay.style.position = 'fixed';
-          overlay.style.right = '12px';
-          overlay.style.bottom = '12px';
-          overlay.style.width = '480px';
-          overlay.style.maxHeight = '60vh';
-          overlay.style.overflow = 'auto';
-          overlay.style.background = 'rgba(0,0,0,0.85)';
-          overlay.style.color = '#fff';
-          overlay.style.padding = '12px';
-          overlay.style.borderRadius = '8px';
-          overlay.style.zIndex = 2147483647;
-          overlay.style.fontSize = '12px';
-          overlay.style.whiteSpace = 'pre-wrap';
-          overlay.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
-          const btn = document.createElement('button');
-          btn.innerText = '关闭';
-          btn.style.position = 'absolute';
-          btn.style.top = '6px';
-          btn.style.right = '6px';
-          btn.addEventListener('click', () => overlay.remove());
-          overlay.appendChild(btn);
-          const textNode = document.createElement('code');
-          textNode.style.display = 'block';
-          textNode.style.marginTop = '24px';
-          overlay.appendChild(textNode);
-          document.body.appendChild(overlay);
-        }
-        const codeNode = overlay.querySelector('code');
-        if (codeNode) codeNode.textContent = raw;
-      } catch (e) { console.warn('显示 JSON 覆盖层失败', e); }
-    }
-
-    // 点击动作时的处理：支持异步 getProblemContext 返回 Promise 的情况
+    // 点击动作时的处理
     function onActionClick(key) {
       console.log("AI 助手 action:", key);
       const pageType = detectPageType();
-      // 约束触发页面（guide -> problem; hint -> edit; fix -> result）
+      
       if (key === 'guide' && pageType !== 'problem') {
-        alert('问题引导仅能在题目界面触发，请先打开题目页面再使用。');
+        alert('问题引导仅能在题目界面触发');
         return;
       }
       if (key === 'hint' && pageType !== 'edit') {
-        alert('思路提示仅能在编辑（提交）界面触发，请在编辑界面使用。');
+        alert('思路提示仅能在编辑界面触发');
         return;
       }
       if (key === 'fix' && pageType !== 'result') {
-        alert('代码纠错仅能在提交结果界面触发，请在提交结果页面使用。');
+        alert('代码纠错仅能在提交结果界面触发');
         return;
       }
 
-      // 获取题目信息，可能返回对象或 Promise
       let maybe = null;
       try { maybe = getProblemContext(); } catch (e) { maybe = {}; }
 
-      // helper: 从 background 拉取缓存（按当前 path）
       function fetchCachedFromBackground(path) {
         return new Promise((resolve) => {
           try {
@@ -262,23 +271,17 @@ console.log("OJ助手内容脚本已注入！");
 
       const handleContext = async (context) => {
         if (!context) context = {};
-        // 若当前上下文中没有题目信息并且不是题面页，主动向 background 请求缓存作为后备
         let usedSource = 'direct';
         let usedContext = context;
-        // 如果没有解析到题目描述（statement），则尝试从 background 拉取规范化路径的缓存
+        
         if ((!context.statement || context.statement === '') && pageType !== 'problem') {
-          console.log('当前页面未解析到题目描述，尝试从 background 拉取缓存...');
           const fromBg = await fetchCachedFromBackground(normalizeProblemPath(location.href));
           if (fromBg && fromBg.data) {
             usedSource = 'background';
             usedContext = fromBg.data;
-            console.log('从 background 获取到题目信息，来源 path=', fromBg.path);
-          } else {
-            console.log('background 未命中缓存，仍使用原始解析结果（可能为空）');
           }
         }
 
-        // 补充当前页代码 / error 等信息
         const currentCode = getCurrentCodeFromPage();
         const errorInfo = (pageType === 'result') ? extractErrorInfo() : '';
 
@@ -296,23 +299,40 @@ console.log("OJ助手内容脚本已注入！");
           _debug_source: usedSource,
         };
 
-        // 测试阶段：直接在页面显示 JSON；同时保留向 background 发送的逻辑
-        showJSONOverlay(payload);
+        // 显示加载状态
+        showLoading('AI 正在思考中...');
+
         try {
           const context_json = JSON.stringify(payload);
           chrome.runtime.sendMessage({ action: "invoke_feature", feature: key, context_json }, (resp) => {
-            console.log("background response:", resp);
+            console.log("[Content-Script] background response:", resp);
+            
+            if (resp && resp.success) {
+              // 显示 AI 响应
+              showResponse(key, resp.result);
+            } else {
+              // 显示错误
+              showError(
+                resp?.error || '请求失败，请重试',
+                resp?.error
+              );
+            }
           });
-        } catch (e) { console.warn('发送消息失败', e); }
+        } catch (e) {
+          console.error('[Content-Script] 发送消息失败', e);
+          showError('无法连接到 AI 服务，请确保后端已启动');
+        }
       };
 
       if (maybe && typeof maybe.then === 'function') {
-        maybe.then(handleContext).catch(e => { console.warn('解析题面失败', e); handleContext({}); });
+        maybe.then(handleContext).catch(e => { 
+          console.warn('[Content-Script] 解析题面失败', e);
+          showError('无法解析题目信息');
+        });
       } else {
         handleContext(maybe);
       }
 
-      // 移动端上点击后收起菜单
       if (isTouchDevice() || touchToggle) setExpanded(false);
     }
 
@@ -386,7 +406,7 @@ console.log("OJ助手内容脚本已注入！");
             }
           });
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {}
 
       const tagContainer = doc.querySelector('#problem-tags') || doc.querySelector('.problem-tags') || doc.querySelector('.tags');
       if (tagContainer) {
@@ -402,18 +422,14 @@ console.log("OJ助手内容脚本已注入！");
 
     // 从当前页面（或通过解析远程页面）获取题目信息，优先使用页面内解析，再回退到 sessionStorage 或 fetch
     function getProblemContext() {
-      // 如果页面看起来像题面，直接解析并缓存
-  const doc = document;
-      // 解析当前页面但不要把任意 <pre> 视为样例（避免把编译错误当样例）
+      const doc = document;
       const parsed = parseProblemFromDocument(doc, false);
 
-      // 如果这是结果页（submission/solution），必须去题目页面抓取题面信息以获取完整的 statement
       try {
         const href = location.href || '';
         const isResult = /\/solution\//.test(href) || /\/submission\//.test(href) || !!document.querySelector('h3.h3-compile-status');
         if (isResult) {
           try {
-            // 尝试在结果页 DOM 中找到指向题目的链接（侧边栏或 compile-info）
             let probHref = null;
             try {
               const dl = doc.querySelector('.compile-info dl');
@@ -429,7 +445,7 @@ console.log("OJ助手内容脚本已注入！");
                   }
                 }
               }
-            } catch (e) { /* ignore */ }
+            } catch (e) {}
 
             if (!probHref) {
               const a = doc.querySelector('.compile-info a[href*="/mooc2017problems/"], #side a[href*="/mooc2017problems/"], a[href*="/problems/"]');
@@ -451,12 +467,11 @@ console.log("OJ助手内容脚本已注入！");
                 } catch (e) {}
                 return Object.assign({}, parsed2, { url: probHref });
               }).catch(e => {
-                console.warn('fetch 题面失败', e);
+                console.warn('[Content-Script] fetch 题面失败', e);
                 return parsed;
               });
             }
 
-            // 没找到题目链接，尝试使用 document.referrer
             const ref = document.referrer;
             if (ref && ref.includes(location.hostname)) {
               return fetch(ref, { credentials: 'include' }).then(r => r.text()).then(html => {
@@ -473,36 +488,30 @@ console.log("OJ助手内容脚本已注入！");
                 } catch (e) {}
                 return Object.assign({}, parsed2, { url: ref });
               }).catch(e => {
-                console.warn('referrer fetch 题面失败', e);
+                console.warn('[Content-Script] referrer fetch 题面失败', e);
                 return parsed;
               });
             }
-          } catch (e) { /* ignore and continue */ }
+          } catch (e) {}
         }
-      } catch (e) { /* ignore */ }
-  // 判断是否为题目页（至少需要有题目描述或样例才视为题面）
-  if (parsed.statement || parsed.samples.length) {
-        // 只以规范化的题面路径作为缓存 key
+      } catch (e) {}
+
+      if (parsed.statement || parsed.samples.length) {
         try {
           const norm = normalizeProblemPath(location.href);
           const key = 'oj_problem_' + norm;
           const payload = { ts: Date.now(), path: norm, data: parsed };
           sessionStorage.setItem(key, JSON.stringify(payload));
           sessionStorage.setItem('oj_last_problem', key);
-        } catch (e) { console.warn('无法写入 sessionStorage', e); }
-        // 同时通知 background 缓存（用于跨页面/跨 tab 读取），只缓存规范化路径
+        } catch (e) {}
         try {
           const norm = normalizeProblemPath(location.href);
-          chrome.runtime.sendMessage({ action: 'cache_problem', path: norm, data: parsed }, (resp) => {
-            // no-op
-          });
-        } catch (e) { /* ignore */ }
+          chrome.runtime.sendMessage({ action: 'cache_problem', path: norm, data: parsed }, (resp) => {});
+        } catch (e) {}
         return Object.assign({}, parsed, { url: location.href });
       }
 
-      // 页面内未能解析出题目信息，尝试从 sessionStorage 的最近缓存读取
       try {
-        // 先尝试从 sessionStorage 用规范化 key 读取
         const norm = normalizeProblemPath(location.href);
         const key = 'oj_problem_' + norm;
         const raw = sessionStorage.getItem(key);
@@ -510,9 +519,8 @@ console.log("OJ助手内容脚本已注入！");
           const obj = JSON.parse(raw);
           if (obj && obj.data) return Object.assign({}, obj.data, { url: obj.path || norm });
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {}
 
-      // 请求 background 获取规范化的缓存（仅使用规范化问题路径）
       try {
         return new Promise((resolve) => {
           try {
@@ -523,9 +531,7 @@ console.log("OJ助手内容脚本已注入！");
                 return;
               }
 
-              // 若 background 未命中，先尝试从结果页 DOM 中定位题目链接并抓取题目页（优先）
               try {
-                // 在侧边栏或 compile-info 中寻找标注为“题目”的 dt -> dd -> a
                 let probHref = null;
                 try {
                   const dl = doc.querySelector('.compile-info dl');
@@ -541,9 +547,8 @@ console.log("OJ助手内容脚本已注入！");
                       }
                     }
                   }
-                } catch (e) { /* ignore */ }
+                } catch (e) {}
 
-                // 兼容查找一般侧栏链接
                 if (!probHref) {
                   const a = doc.querySelector('.compile-info a[href*="/mooc"] , #side a[href*="/mooc"], .compile-info a[href*="/problems"]');
                   if (a && a.getAttribute('href')) probHref = new URL(a.getAttribute('href'), location.origin).href;
@@ -564,11 +569,10 @@ console.log("OJ助手内容脚本已注入！");
                     } catch (e) {}
                     resolve(Object.assign({}, parsed2, { url: probHref }));
                   }).catch(e => {
-                    console.warn('fetch 题面失败', e);
+                    console.warn('[Content-Script] fetch 题面失败', e);
                     resolve(parsed);
                   });
                 } else {
-                  // 没有发现题目链接，则再尝试使用 document.referrer 回退
                   const ref = document.referrer;
                   if (ref && ref.includes(location.hostname)) {
                     fetch(ref, { credentials: 'include' }).then(r => r.text()).then(html => {
@@ -585,7 +589,7 @@ console.log("OJ助手内容脚本已注入！");
                       } catch (e) {}
                       resolve(Object.assign({}, parsed2, { url: ref }));
                     }).catch(e => {
-                      console.warn('fetch 题面失败', e);
+                      console.warn('[Content-Script] fetch 题面失败', e);
                       resolve(parsed);
                     });
                   } else {
@@ -595,21 +599,20 @@ console.log("OJ助手内容脚本已注入！");
               } catch (e) { resolve(parsed); }
             });
           } catch (e) {
-            // messaging failed, 尝试 referrer fetch
             try {
               const ref = document.referrer;
               if (ref && ref.includes(location.hostname)) {
                 fetch(ref, { credentials: 'include' }).then(r => r.text()).then(html => {
                   const parser = new DOMParser();
                   const doc2 = parser.parseFromString(html, 'text/html');
-                    const parsed2 = parseProblemFromDocument(doc2, true);
+                  const parsed2 = parseProblemFromDocument(doc2, true);
                   resolve(Object.assign({}, parsed2, { url: ref }));
                 }).catch(() => resolve(parsed));
               } else resolve(parsed);
             } catch (e2) { resolve(parsed); }
           }
         });
-      } catch (e) { /* ignore */ }
+      } catch (e) {}
 
       return parsed;
     }
@@ -632,6 +635,11 @@ console.log("OJ助手内容脚本已注入！");
       link.href = cssHref;
       document.head.appendChild(link);
     }
+
+    // 加载 UI 管理器脚本
+    loadUIManager().then(() => {
+      console.log('[Content-Script] Setup complete');
+    });
   }
 
   if (document.readyState === "complete" || document.readyState === "interactive") {

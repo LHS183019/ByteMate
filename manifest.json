@@ -30,12 +30,15 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/inject-ui.js",
-        "content/style.css",
-        "assets/*",
-        "dashboard/*",
-        "prompts/*"
+        "prompts/guide.txt",
+        "prompts/idea.txt",
+        "prompts/code_fix.txt",
+        "prompts/knowledge_tag.txt"
       ],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["content/style.css", "content/ui.js", "api/**/*.js"],
       "matches": ["<all_urls>"]
     }
   ]

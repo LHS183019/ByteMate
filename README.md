@@ -23,18 +23,26 @@
 ai-openjudge-helper/
 │
 ├── manifest.json 
-│
+|
 ├── background/
 │   └── background.js
 │
 ├── content/
 │   ├── content-script.js
 │   ├── inject-ui.js
+│   ├── ui.js
 │   └── style.css
 │
 ├── api/
 │   ├── llm.js
+│   ├── promptManager.js
+│   ├── aiAssistant.js
 │   └── storage.js
+|
+├── backend/
+│   ├── .env.example
+│   ├── llm-proxy.js
+│   └── package.js
 │
 ├── prompts/
 │   ├── guide.txt
@@ -54,10 +62,11 @@ ai-openjudge-helper/
 │   ├── popup.js
 │   └── popup.css
 │
-└── assets/
-    ├── icon128.png
-    ├── icon48.png
-    ├── icon16.png
+└── readme_assets/
+    ├── asset1.png
+    ├── asset2.png
+    ├── asset3.png
+    ├── ai_output.png
     └── pet/
         ├── pet_idle.json   (Lottie 动画或 gif)
         ├── pet_happy.json
@@ -83,6 +92,8 @@ ai-openjudge-helper/
 **style.css**专为注入 UI 使用的样式，采用 shadow DOM 避免冲突
 
 **llm.js** 封装大语言模型 API 通讯（OpenAI/DeepSeek/Zhipu/Qwen/Groq 任意可切换）
+
+**.env.example** 存放url和API的位置，可以在这里选择使用的模型
 
 **storage.js**  封装 chrome.storage
 如：saveProgress(),getProgress(),updateKnowledgeTags(),updatePetStatus()
@@ -228,3 +239,42 @@ ai-openjudge-helper/
 
 </details>
 
+# 当前`ai-api`的进展(2025/11/19/13:27)
+
+## 完成的项目
+
+- 申请了deepseek、质谱清言、通义千问三个api（发送到微信群里了）
+- api存放在环境变量中，示例文件如.env.example
+- 完成提示词设计（有待完善）
+- 现在ai可以输出对应问题的回复了！（json格式）
+- 现在的实现效果如文件`readme_asset/asset3.png`, `readme_asset/ai-output.png`
+
+## 部署更改
+
+**需要在后端启动本地服务器，代码如下：**
+
+```bash
+cd backend
+npm install
+npm start
+```
+
+ps. powershell中`npm`似乎无法正确解析，需要输入`npm.cmd`。
+
+终端会显示服务器状态，同时提供相关测试curl代码，可以用来测试api调用情况。
+
+## 新增和修改的文件
+
+- **api/:** 新增`aiAssistant.js`,`promptManager.js`，维护ai输出的接口
+- **backend/:** 新增该文件夹，存放api环境变量及相关维护代码
+- **content/:** 新增`ui.js`，copilot突然生成的，还有些加载问题。但是融合到了ai输出的逻辑里，暂时无法取缔。希望前端调整。`content-script.js`
+- **prompts/:** 写入提示词。
+- **test/test-api.js** 可以用来测试api调用
+
+## 存在的问题和未来目标
+
+- **！！现在插件运行时会显示ui无法正确启动的相关事项** 。但是能用鉴于前端还需要设计并调整ui，暂时不做处理。
+- **现在的ai调用很慢（并非思考模型）**。或许需要设计一些预加载措施，至少需要在前端加入ai思考中提示语。
+- 点击电子宠物按钮，ai同样会返回代码问题的回答。
+- **模型选择是在后台完成的，而非用户自选**。
+- 未来考虑把api部署到服务器。
