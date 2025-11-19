@@ -30,15 +30,11 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "prompts/guide.txt",
-        "prompts/idea.txt",
-        "prompts/code_fix.txt",
-        "prompts/knowledge_tag.txt"
+        "content/*",
+        "assets/*",
+        "dashboard/*",
+        "prompts/*"
       ],
-      "matches": ["<all_urls>"]
-    },
-    {
-      "resources": ["content/style.css", "content/ui.js", "api/**/*.js"],
       "matches": ["<all_urls>"]
     }
   ]
