@@ -66,6 +66,7 @@ console.log("OJ助手内容脚本已注入！");
     { key: "hint", label: "思路提示" },
     { key: "fix", label: "代码纠错" },
     { key: "recommend", label: "知识推荐" },
+    { key: "pet", label: "电子宠物" },
   ];
 
   function createMenu() {
