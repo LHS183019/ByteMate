@@ -37,8 +37,8 @@
 /* container for child action buttons */
 .oj-helper-menu {
   position: fixed;
-  right: 120px; /* 进一步调整为更靠左的位置 */
-  bottom: 170px; /* 调整为小猫高度+一些间距，确保不重叠 */
+  right: 190px; /* 进一步调整为更靠左的位置 */
+  bottom: 80px; /* 调整为小猫高度+一些间距，确保不重叠 */
 	display: flex;
 	flex-direction: column-reverse;
 	gap: 10px;
