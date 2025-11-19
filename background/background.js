@@ -1,85 +1,144 @@
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  console.log("后台收到消息：", msg);
-  // 处理打开 url 请求
-  if (msg && msg.action === "open_url" && msg.url) {
-    try {
-      chrome.tabs.create({ url: msg.url }, () => {
-        // 回调后发送响应
-        sendResponse({ ok: true });
+console.log('[Background] Service Worker started');
+
+// 题目缓存存储（内存缓存）
+const problemCache = new Map();
+
+// 监听来自 content-script 的消息
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('[Background] Received message:', request.action);
+
+  if (request.action === 'cache_problem') {
+    // 缓存题目信息
+    const { path, data } = request;
+    if (path && data) {
+      problemCache.set(path, {
+        ts: Date.now(),
+        data,
       });
-      // 返回 true 表示 sendResponse 会在异步回调中被调用
-      return true;
-    } catch (e) {
-      console.error("打开标签页失败：", e);
-      sendResponse({ ok: false, error: String(e) });
-      return false;
+      console.log('[Background] Cached problem at path:', path);
+      sendResponse({ ok: true });
     }
+    return true;
   }
 
-  // 其它消息默认回复
-  if (msg && msg.action === "invoke_feature") {
-    console.log("invoke_feature 请求：", msg.feature);
-    if (msg.context_json) {
-      try {
-        const parsed = JSON.parse(msg.context_json);
-        console.log("收到题目信息 JSON:", parsed);
-      } catch (e) {
-        console.warn("无法解析 context_json:", e, msg.context_json);
-      }
-    } else if (msg.context) {
-      console.log("收到题目信息对象:", msg.context);
-    }
-    // 占位：后续会根据 feature 执行相关逻辑（调用 LLM、打开面板等）
-    sendResponse({ ok: true, feature: msg.feature });
-    return false;
-  }
-
-  // 缓存题目信息请求：存到 chrome.storage.local，便于跨页面读取
-  if (msg && msg.action === 'cache_problem') {
-    try {
-      const key = msg.path ? ('oj_problem_' + msg.path) : ('oj_problem_last');
-      const payload = { ts: Date.now(), path: msg.path || '', data: msg.data || {} };
-      const obj = {};
-      obj[key] = payload;
-      // 同时维护一个统一的 last key
-      obj['oj_last_problem'] = key;
-      chrome.storage.local.set(obj, () => {
-        console.log('已缓存题目信息到 storage:', key);
-        sendResponse({ ok: true });
+  if (request.action === 'get_cached_problem') {
+    // 获取缓存的题目信息
+    const { path } = request;
+    if (path && problemCache.has(path)) {
+      const cached = problemCache.get(path);
+      console.log('[Background] Returning cached problem for path:', path);
+      sendResponse({
+        ok: true,
+        path,
+        data: cached.data,
       });
-      return true;
-    } catch (e) {
-      console.error('缓存题目信息失败', e);
-      sendResponse({ ok: false, error: String(e) });
-      return false;
+    } else {
+      console.log('[Background] No cache for path:', path);
+      sendResponse({ ok: false });
     }
+    return true;
   }
 
-  // 获取缓存题目（按 path 或者最近一个）
-  if (msg && msg.action === 'get_cached_problem') {
+  if (request.action === 'invoke_feature') {
+    // 调用 AI 功能
+    const { feature, context_json } = request;
+    console.log('[Background] Invoking feature:', feature);
+
     try {
-      // 如果传入 path，则优先按 path 查找
-      const pathKey = msg.path ? ('oj_problem_' + msg.path) : null;
-      const look = (items) => {
-        if (pathKey && items[pathKey]) return items[pathKey];
-        if (items['oj_last_problem']) {
-          const lastKey = items['oj_last_problem'];
-          if (items[lastKey]) return items[lastKey];
-        }
-        return null;
-      };
-      chrome.storage.local.get(null, (items) => {
-        const found = look(items);
-        if (found) sendResponse({ ok: true, data: found.data, path: found.path });
-        else sendResponse({ ok: false });
+      const context = JSON.parse(context_json);
+      invokeAIFeature(feature, context, sendResponse);
+    } catch (error) {
+      console.error('[Background] Failed to parse context:', error);
+      sendResponse({
+        success: false,
+        error: '上下文解析失败',
       });
-      return true;
-    } catch (e) {
-      console.error('读取缓存题目失败', e);
-      sendResponse({ ok: false, error: String(e) });
-      return false;
     }
+    return true; // 异步响应
   }
 
-  sendResponse({ reply: "后台已收到" });
+  sendResponse({ ok: false, error: 'Unknown action' });
 });
+
+/**
+ * 调用 AI 功能
+ */
+async function invokeAIFeature(feature, context, sendResponse) {
+  try {
+    console.log('[AI-Feature] Starting:', feature);
+    console.log('[AI-Feature] Context:', {
+      feature: context.feature,
+      pageType: context.pageType,
+      title: context.title,
+      codeLength: context.currentCode.length,
+    });
+
+    // 构造请求体
+    const payload = {
+      feature: context.feature,
+      title: context.title,
+      statement: context.statement,
+      currentCode: context.currentCode,
+      samples: context.samples,
+      problemId: context.problemId,
+      error: context.error || '',
+    };
+
+    // 根据 feature 类型调用不同的后端端点
+    const backendUrl = 'http://localhost:3000/api/assist';
+
+    console.log('[AI-Feature] Sending request to:', backendUrl);
+
+    const response = await fetch(backendUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('[AI-Feature] Response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('[AI-Feature] Success:', {
+      success: result.success,
+      feature: result.feature,
+      resultType: typeof result.result,
+    });
+
+    // 返回结果给 content-script
+    sendResponse({
+      success: true,
+      feature,
+      result: result.result,
+      timestamp: result.timestamp,
+    });
+  } catch (error) {
+    console.error('[AI-Feature] Error:', error.message);
+    sendResponse({
+      success: false,
+      error: error.message,
+      feature,
+    });
+  }
+}
+
+/**
+ * 定期清理过期缓存（24小时）
+ */
+setInterval(() => {
+  const now = Date.now();
+  const maxAge = 24 * 60 * 60 * 1000; // 24小时
+
+  for (const [path, cached] of problemCache.entries()) {
+    if (now - cached.ts > maxAge) {
+      problemCache.delete(path);
+      console.log('[Background] Cleaned up expired cache for path:', path);
+    }
+  }
+}, 60 * 60 * 1000); // 每小时检查一次
