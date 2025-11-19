@@ -228,3 +228,27 @@ ai-openjudge-helper/
 
 </details>
 
+## new development(2025.11.18 22:40)
+
+一、在基础框架下完成了dashboard页面和样式设计(index.html & index.css)，效果如下
+
+![](readme_asset/dashboard.png)
+
+主要模块:
+   （1）学习进度显示
+       1.今日学习情况（已完成题目数，学习时长，掌握知识点数）
+       2.近七天学习进度趋势
+       3.知识点掌握情况
+       4.最近练习显示
+    (2) 相似题目推荐
+
+二、index.js
+
+逻辑不太对，且需要storage的接口来显示学习进度和题目推荐等，后面再研究研究
+
+三、popup页面和样式设计完成
+  
+          
+    
+    
+       
