@@ -1042,8 +1042,37 @@ class UIManager {
       return ctx;
     }
 
-    // 从当前页面（或通过解析远程页面）获取题目信息，优先使用页面内解析，再回退到 sessionStorage 或 fetch
-    function getProblemContext() {
+    // 存储工具函数 - 用于缓存题目信息
+function cacheProblemData(path, data) {
+  try {
+    const key = 'oj_problem_' + path;
+    const payload = { ts: Date.now(), path: path, data: data };
+    sessionStorage.setItem(key, JSON.stringify(payload));
+    sessionStorage.setItem('oj_last_problem', key);
+    // 同时发送到后台进行缓存
+    try { chrome.runtime.sendMessage({ action: 'cache_problem', path: path, data: data }); } catch (e) {}
+  } catch (e) {
+    console.warn('[Content-Script] 缓存题目数据失败', e);
+  }
+}
+
+// 获取缓存的题目信息
+function getCachedProblemData(path) {
+  try {
+    const key = 'oj_problem_' + path;
+    const raw = sessionStorage.getItem(key);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      if (obj && obj.data) return obj.data;
+    }
+  } catch (e) {
+    console.warn('[Content-Script] 获取缓存题目数据失败', e);
+  }
+  return null;
+}
+
+// 从当前页面（或通过解析远程页面）获取题目信息，优先使用页面内解析，再回退到 sessionStorage 或 fetch
+function getProblemContext() {
       const doc = document;
       const parsed = parseProblemFromDocument(doc, false);
 
@@ -1081,11 +1110,7 @@ class UIManager {
                 const parsed2 = parseProblemFromDocument(doc2, true);
                 try {
                   const refNorm = normalizeProblemPath(probHref);
-                  const key = 'oj_problem_' + refNorm;
-                  const payload = { ts: Date.now(), path: refNorm, data: parsed2 };
-                  sessionStorage.setItem(key, JSON.stringify(payload));
-                  sessionStorage.setItem('oj_last_problem', key);
-                  try { chrome.runtime.sendMessage({ action: 'cache_problem', path: refNorm, data: parsed2 }); } catch (e) {}
+                  cacheProblemData(refNorm, parsed2);
                 } catch (e) {}
                 return Object.assign({}, parsed2, { url: probHref });
               }).catch(e => {
@@ -1102,11 +1127,7 @@ class UIManager {
                 const parsed2 = parseProblemFromDocument(doc2, true);
                 try {
                   const refNorm = normalizeProblemPath(ref);
-                  const key = 'oj_problem_' + refNorm;
-                  const payload = { ts: Date.now(), path: refNorm, data: parsed2 };
-                  sessionStorage.setItem(key, JSON.stringify(payload));
-                  sessionStorage.setItem('oj_last_problem', key);
-                  try { chrome.runtime.sendMessage({ action: 'cache_problem', path: refNorm, data: parsed2 }); } catch (e) {}
+                  cacheProblemData(refNorm, parsed2);
                 } catch (e) {}
                 return Object.assign({}, parsed2, { url: ref });
               }).catch(e => {
@@ -1121,25 +1142,16 @@ class UIManager {
       if (parsed.statement || parsed.samples.length) {
         try {
           const norm = normalizeProblemPath(location.href);
-          const key = 'oj_problem_' + norm;
-          const payload = { ts: Date.now(), path: norm, data: parsed };
-          sessionStorage.setItem(key, JSON.stringify(payload));
-          sessionStorage.setItem('oj_last_problem', key);
-        } catch (e) {}
-        try {
-          const norm = normalizeProblemPath(location.href);
-          chrome.runtime.sendMessage({ action: 'cache_problem', path: norm, data: parsed }, (resp) => {});
+          cacheProblemData(norm, parsed);
         } catch (e) {}
         return Object.assign({}, parsed, { url: location.href });
       }
 
       try {
         const norm = normalizeProblemPath(location.href);
-        const key = 'oj_problem_' + norm;
-        const raw = sessionStorage.getItem(key);
-        if (raw) {
-          const obj = JSON.parse(raw);
-          if (obj && obj.data) return Object.assign({}, obj.data, { url: obj.path || norm });
+        const cachedData = getCachedProblemData(norm);
+        if (cachedData) {
+          return Object.assign({}, cachedData, { url: norm });
         }
       } catch (e) {}
 
@@ -1182,13 +1194,9 @@ class UIManager {
                     const doc2 = parser.parseFromString(html, 'text/html');
                     const parsed2 = parseProblemFromDocument(doc2, true);
                     try {
-                      const refNorm = normalizeProblemPath(probHref);
-                      const key = 'oj_problem_' + refNorm;
-                      const payload = { ts: Date.now(), path: refNorm, data: parsed2 };
-                      sessionStorage.setItem(key, JSON.stringify(payload));
-                      sessionStorage.setItem('oj_last_problem', key);
-                      try { chrome.runtime.sendMessage({ action: 'cache_problem', path: refNorm, data: parsed2 }); } catch (e) {}
-                    } catch (e) {}
+                  const refNorm = normalizeProblemPath(probHref);
+                  cacheProblemData(refNorm, parsed2);
+                } catch (e) {}
                     resolve(Object.assign({}, parsed2, { url: probHref }));
                   }).catch(e => {
                     console.warn('[Content-Script] fetch 题面失败', e);
@@ -1202,13 +1210,9 @@ class UIManager {
                       const doc2 = parser.parseFromString(html, 'text/html');
                       const parsed2 = parseProblemFromDocument(doc2, true);
                       try {
-                        const refNorm = normalizeProblemPath(ref);
-                        const key = 'oj_problem_' + refNorm;
-                        const payload = { ts: Date.now(), path: refNorm, data: parsed2 };
-                        sessionStorage.setItem(key, JSON.stringify(payload));
-                        sessionStorage.setItem('oj_last_problem', key);
-                        try { chrome.runtime.sendMessage({ action: 'cache_problem', path: refNorm, data: parsed2 }); } catch (e) {}
-                      } catch (e) {}
+                          const refNorm = normalizeProblemPath(ref);
+                          cacheProblemData(refNorm, parsed2);
+                        } catch (e) {}
                       resolve(Object.assign({}, parsed2, { url: ref }));
                     }).catch(e => {
                       console.warn('[Content-Script] fetch 题面失败', e);

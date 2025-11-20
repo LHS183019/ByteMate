@@ -7,6 +7,9 @@
  * 4. 打开 Dashboard 仪表板
  */
 
+// 导入StorageManager类
+import { StorageManager } from '../api/storage.js';
+
 // ============ 存储键定义 ============
 const STORAGE_KEYS = {
   MODEL: 'bytemate_model',
@@ -38,10 +41,10 @@ const DOM = {
 };
 
 // ============ 初始化 ============
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('Popup 已加载');
-  loadSettings();
-  loadTodayStats();
+  await loadSettings();
+  await loadTodayStats();
   attachEventListeners();
 });
 
@@ -49,50 +52,65 @@ document.addEventListener('DOMContentLoaded', () => {
 /**
  * 从浏览器存储加载已保存的设置
  */
-function loadSettings() {
-  chrome.storage.local.get([STORAGE_KEYS.MODEL, STORAGE_KEYS.API_KEY], (result) => {
+async function loadSettings() {
+  try {
+    // 设置使用local存储
+    await StorageManager.setStorageType('local');
+    
     // 加载模型选择
-    if (result[STORAGE_KEYS.MODEL]) {
-      DOM.modelSelect.value = result[STORAGE_KEYS.MODEL];
+    const model = await StorageManager.getItem(STORAGE_KEYS.MODEL);
+    if (model) {
+      DOM.modelSelect.value = model;
     }
 
     // 加载 API Key
-    if (result[STORAGE_KEYS.API_KEY]) {
-      DOM.apiKeyInput.value = result[STORAGE_KEYS.API_KEY];
+    const apiKey = await StorageManager.getItem(STORAGE_KEYS.API_KEY);
+    if (apiKey) {
+      DOM.apiKeyInput.value = apiKey;
     }
-  });
+  } catch (error) {
+    console.error('加载设置失败:', error);
+  }
 }
 
 // ============ 加载今日统计 ============
 /**
  * 加载并显示今日学习情况
  */
-function loadTodayStats() {
-  const today = new Date().toISOString().split('T')[0];
-
-  chrome.storage.local.get([STORAGE_KEYS.DAILY_STATS, STORAGE_KEYS.LAST_RESET], (result) => {
-    let stats = result[STORAGE_KEYS.DAILY_STATS] || {};
-    const lastReset = result[STORAGE_KEYS.LAST_RESET];
+async function loadTodayStats() {
+  try {
+    // 设置使用local存储
+    await StorageManager.setStorageType('local');
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 获取统计数据
+    const stats = await StorageManager.getItem(STORAGE_KEYS.DAILY_STATS) || {};
+    const lastReset = await StorageManager.getItem(STORAGE_KEYS.LAST_RESET);
 
     // 如果是新的一天，重置统计数据
     if (lastReset !== today) {
-      stats = {
+      const newStats = {
         date: today,
         solved: 0,
         helped: 0,
         tags: 0
       };
-      chrome.storage.local.set({
-        [STORAGE_KEYS.DAILY_STATS]: stats,
-        [STORAGE_KEYS.LAST_RESET]: today
-      });
+      await StorageManager.setItem(STORAGE_KEYS.DAILY_STATS, newStats);
+      await StorageManager.setItem(STORAGE_KEYS.LAST_RESET, today);
+      // 更新 UI
+      DOM.solvedCount.textContent = 0;
+      DOM.helpedCount.textContent = 0;
+      DOM.tagsCount.textContent = 0;
+    } else {
+      // 更新 UI
+      DOM.solvedCount.textContent = stats.solved || 0;
+      DOM.helpedCount.textContent = stats.helped || 0;
+      DOM.tagsCount.textContent = stats.tags || 0;
     }
-
-    // 更新 UI
-    DOM.solvedCount.textContent = stats.solved || 0;
-    DOM.helpedCount.textContent = stats.helped || 0;
-    DOM.tagsCount.textContent = stats.tags || 0;
-  });
+  } catch (error) {
+    console.error('加载统计数据失败:', error);
+  }
 }
 
 // ============ 事件监听 ============
@@ -101,12 +119,19 @@ function loadTodayStats() {
  */
 function attachEventListeners() {
   // 模型选择变化时实时保存
-  DOM.modelSelect.addEventListener('change', () => {
-    const selectedModel = DOM.modelSelect.value;
-    chrome.storage.local.set({ [STORAGE_KEYS.MODEL]: selectedModel }, () => {
+  DOM.modelSelect.addEventListener('change', async () => {
+    try {
+      // 设置使用local存储
+      await StorageManager.setStorageType('local');
+      
+      const selectedModel = DOM.modelSelect.value;
+      await StorageManager.setItem(STORAGE_KEYS.MODEL, selectedModel);
       console.log('模型已切换为:', selectedModel);
       showStatus('模型已切换', 'success');
-    });
+    } catch (error) {
+      console.error('保存模型选择失败:', error);
+      showStatus('保存失败', 'error');
+    }
   });
 
   // 密码显示/隐藏切换
@@ -139,7 +164,7 @@ function attachEventListeners() {
 /**
  * 保存用户设置到浏览器存储
  */
-function saveSettings() {
+async function saveSettings() {
   const model = DOM.modelSelect.value;
   const apiKey = DOM.apiKeyInput.value.trim();
 
@@ -154,10 +179,13 @@ function saveSettings() {
     return;
   }
 
-  chrome.storage.local.set({
-    [STORAGE_KEYS.MODEL]: model,
-    [STORAGE_KEYS.API_KEY]: apiKey
-  }, () => {
+  try {
+    // 设置使用local存储
+    await StorageManager.setStorageType('local');
+    
+    await StorageManager.setItem(STORAGE_KEYS.MODEL, model);
+    await StorageManager.setItem(STORAGE_KEYS.API_KEY, apiKey);
+    
     console.log('设置已保存 - 模型:', model, '| API Key:', apiKey.substring(0, 5) + '***');
     showStatus('✓ 设置已保存', 'success');
 
@@ -172,7 +200,10 @@ function saveSettings() {
       DOM.statusMessage.textContent = '';
       DOM.statusMessage.className = 'status-message';
     }, 2000);
-  });
+  } catch (error) {
+    console.error('保存设置失败:', error);
+    showStatus('保存失败', 'error');
+  }
 }
 
 // ============ 打开 Dashboard ============
@@ -227,22 +258,36 @@ function showStatus(message, type = 'info') {
 /**
  * 获取当前保存的设置
  */
-function getSettings(callback) {
-  chrome.storage.local.get(
-    [STORAGE_KEYS.MODEL, STORAGE_KEYS.API_KEY],
-    callback
-  );
+async function getSettings() {
+  try {
+    // 设置使用local存储
+    await StorageManager.setStorageType('local');
+    
+    const model = await StorageManager.getItem(STORAGE_KEYS.MODEL);
+    const apiKey = await StorageManager.getItem(STORAGE_KEYS.API_KEY);
+    return {
+      [STORAGE_KEYS.MODEL]: model,
+      [STORAGE_KEYS.API_KEY]: apiKey
+    };
+  } catch (error) {
+    console.error('获取设置失败:', error);
+    return {};
+  }
 }
 
 /**
  * 更新今日统计数据
  * @param {string} statType - 统计类型 ('solved', 'helped', 'tags')
  */
-function updateDailyStat(statType) {
-  const today = new Date().toISOString().split('T')[0];
-
-  chrome.storage.local.get([STORAGE_KEYS.DAILY_STATS, STORAGE_KEYS.LAST_RESET], (result) => {
-    let stats = result[STORAGE_KEYS.DAILY_STATS] || {
+async function updateDailyStat(statType) {
+  try {
+    // 设置使用local存储
+    await StorageManager.setStorageType('local');
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 获取统计数据
+    let stats = await StorageManager.getItem(STORAGE_KEYS.DAILY_STATS) || {
       date: today,
       solved: 0,
       helped: 0,
@@ -250,7 +295,7 @@ function updateDailyStat(statType) {
     };
 
     // 检查是否是新的一天
-    const lastReset = result[STORAGE_KEYS.LAST_RESET];
+    const lastReset = await StorageManager.getItem(STORAGE_KEYS.LAST_RESET);
     if (lastReset !== today) {
       stats = {
         date: today,
@@ -266,13 +311,13 @@ function updateDailyStat(statType) {
     }
 
     // 保存更新
-    chrome.storage.local.set({
-      [STORAGE_KEYS.DAILY_STATS]: stats,
-      [STORAGE_KEYS.LAST_RESET]: today
-    }, () => {
-      console.log(`统计已更新: ${statType} = ${stats[statType]}`);
-    });
-  });
+    await StorageManager.setItem(STORAGE_KEYS.DAILY_STATS, stats);
+    await StorageManager.setItem(STORAGE_KEYS.LAST_RESET, today);
+    
+    console.log(`统计已更新: ${statType} = ${stats[statType]}`);
+  } catch (error) {
+    console.error('更新统计数据失败:', error);
+  }
 }
 
 // ============ 监听来自 content-script 的消息 ============

@@ -108,7 +108,7 @@ class AIAssistant {
       
       // 获取知识标签并保存
       const tags = this.extractTagsFromResult(result);
-      await storageManager.updateKnowledgeTags(tags);
+      await StorageManager.updateKnowledgeTags(tags);
 
       return this.normalizeResponse(result, 'knowledge_tag');
     } catch (error) {

@@ -4,7 +4,7 @@
 
 下面转载了群里的一些环境设置说明和接口说明：
 
-## 环境
+## 环境 (2025/11/20 12:03 更新)
 
 在浏览器（是chrome插件框架，chrome、edge这些浏览器都可以，火狐好像也可以，safari不行）的设置就是在扩展界面打开开发者设置后添加本地扩展就可以，然后正常的话打开oj题目界面右下角就有一个悬浮窗按钮，然后右上角也会有一个点击的按钮可以跳转“学习进度”界面
 
@@ -16,6 +16,18 @@
 
 然后选择`bytemate`文件夹即可载入插件。
 
+### 本地backend配置
+
+需要修改`\backend\.env`，参考`.env.example`文件，目前只有`LLM_PROVIDER=zhipu`的选项可以正常工作（详见下方最近一次更新）。
+
+**需要在后端启动本地服务器，代码如下：**
+
+```bash
+cd backend
+npm install
+npm start
+```
+ps. powershell中`npm`似乎无法正确解析，需要输入`npm.cmd`。
 
 ## 文件架构 (2025/11/20 03:32 更新)
 
@@ -320,12 +332,27 @@ ps. powershell中`npm`似乎无法正确解析，需要输入`npm.cmd`。
 
 </details>
 
-# 最新更新: merge了LLM API调用、content-script.js的修改、dashboard和popup的设计(2025/11/20/5:00)
+# 最新更新: merge了LLM API调用、content-script.js的修改、dashboard和popup的设计(2025/11/20/12:01)
 
+## UI交互todo-list @LHS183019
+- [x] 把右下角浮窗修改成待机小猫
+- [x] 修改hover出现的menu的theme -> click on才会出现menu
+- [x] 对后端返回结果的theme和交互方式进行修改，使其符合我们的设计
+- [ ] 使支援多则历史记录查看和删除
 
-## so many BUG!!
+## so many BUGs!!
 
+目前已发现的问题：
 - [ ] 无法点开dashboard
 - [ ] popup的设定无法更新到后台
-- [ ] 后端无法正常返回结果(qwen请求貌似发送不成功, ds需要余额，只有zhipu works)
-- [ ] 后端返回结果无法正确加载入前端
+- [ ] 后端无法正常返回结果(qwen,deepseek返回格式与zhipu不统一，目前只有zhipu works)
+    - Deepseek返回格式：
+    ![deepseek_response](readme_asset/ds_response.png)
+    - Qwen返回格式：
+    ![qwen_response](readme_asset/qwen_response.png)
+    - ZhiPu返回格式：
+    ![zhipu_response](readme_asset/zhipu_response.png)
+
+- [x] 后端返回结果无法正确加载入前端
+- [ ] dashboard和backend在api/storage.js的重复设计
+    - 已经合并了两份的设计，但不确定是否能正常工作

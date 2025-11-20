@@ -34,12 +34,26 @@ function testLLMClient() {
 async function testStorage() {
   console.log('=== 测试存储管理器 ===');
   try {
-    if (typeof storageManager !== 'undefined') {
-      const userId = await storageManager.initializeUser();
+    if (typeof StorageManager !== 'undefined') {
+      // 初始化用户
+      const userId = await StorageManager.initializeUser();
       console.log('✓ 用户 ID:', userId);
+      
+      // 获取用户ID
+      const retrievedUserId = await StorageManager.getUserId();
+      console.log('✓ 获取用户ID成功:', retrievedUserId);
+      
+      // 保存学习进度
+      await StorageManager.saveProgress('test_problem_id', { status: 'solved', time: Date.now() });
+      console.log('✓ 保存学习进度成功');
+      
+      // 获取学习进度
+      const progress = await StorageManager.getProgress('test_problem_id');
+      console.log('✓ 获取学习进度:', progress);
+      
       return true;
     } else {
-      console.error('✗ storageManager 未定义');
+      console.error('✗ StorageManager 未定义');
       return false;
     }
   } catch (error) {
