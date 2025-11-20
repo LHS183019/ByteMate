@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>编程题目列表</title>
+    <title>OpenJudge列表</title>
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>编程题目列表</h1>
+            <h1>OpenJudge题目列表</h1>
         </header>
         
         <div class="search-filter-container">
@@ -18,6 +18,11 @@
                 <select class="filter-select" id="sortFilter">
                     <option value="id">按ID排序</option>
                     <option value="attempts">按热度排序</option>
+                </select>
+                <select class="filter-select" id="langFilter">
+                    <option value="">所有语言</option>
+                    <option value="chinese">中文</option>
+                    <option value="english">英文</option>
                 </select>
                 <select class="filter-select" id="difficultyFilter">
                     <option value="">所有难度</option>
