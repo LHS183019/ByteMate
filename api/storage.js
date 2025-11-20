@@ -754,5 +754,60 @@ const storageManagerForPopup = {
   getAll: __getAll,
 };
 
+// 创建一个包装器，保持向后兼容
+const StorageManagerWrapper = {
+  // 新API方法
+  setStorageType: __setStorageType,
+  getItem: __getItem,
+  setItem: __setItem,
+  removeItem: __removeItem,
+  getAll: __getAll,
+  
+  // 保持兼容性，代理到主实例
+  async init() {
+    return await storageManager.init();
+  },
+  
+  async saveProgress(problemId, progressData) {
+    return await storageManager.saveProgress(problemId, progressData);
+  },
+  
+  async getProgress() {
+    return await storageManager.getProgress();
+  },
+  
+  async updateKnowledgeTags(tags) {
+    return await storageManager.updateKnowledgeTags(tags);
+  },
+  
+  async getKnowledgeTags() {
+    return await storageManager.getKnowledgeTags();
+  },
+  
+  async updatePetStatus(petData) {
+    return await storageManager.updatePetStatus(petData);
+  },
+  
+  async getPetStatus() {
+    return await storageManager.getPetStatus();
+  },
+  
+  async saveSettings(settings) {
+    return await storageManager.saveSettings(settings);
+  },
+  
+  async getSettings() {
+    return await storageManager.getSettings();
+  },
+  
+  async getUserId() {
+    return await storageManager.getUserId();
+  },
+  
+  async initializeUser() {
+    return await storageManager.initializeUser();
+  }
+};
+
 // 以 ES Module 形式导出，供 extension 页面通过 <script type="module"> 引入
-export { storageManagerForPopup as StorageManager };
+export { StorageManagerWrapper as StorageManager };

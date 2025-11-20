@@ -57,7 +57,7 @@ body {
 	gap: 0.5rem;
 }
 
-.refresh-btn, .test-btn {
+.refresh-btn {
 	background: rgba(255, 255, 255, 0.2);
 	color: white;
 	border: 1px solid rgba(255, 255, 255, 0.3);
@@ -69,13 +69,13 @@ body {
 	backdrop-filter: blur(10px);
 }
 
-.refresh-btn:hover, .test-btn:hover {
+.refresh-btn:hover {
 	background: rgba(255, 255, 255, 0.3);
 	border-color: rgba(255, 255, 255, 0.5);
 	transform: translateY(-1px);
 }
 
-.refresh-btn:active, .test-btn:active {
+.refresh-btn:active {
 	transform: translateY(0);
 }
 

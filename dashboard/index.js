@@ -630,21 +630,6 @@ function setupEventListeners() {
     });
   }
   
-  // 添加测试数据按钮
-  const testDataBtn = document.getElementById('add-test-data-btn');
-  if (testDataBtn) {
-    testDataBtn.addEventListener('click', async () => {
-      console.log('🎲 添加测试数据...');
-      if (storage && storage.addTestData) {
-        await storage.addTestData();
-        // 刷新显示
-        setTimeout(async () => {
-          await loadAllData();
-        }, 500);
-      }
-    });
-  }
-  
   // 为题目列表项添加点击事件（跳转到题目页面）
   document.addEventListener('click', (e) => {
     const problemItem = e.target.closest('.problem-item');

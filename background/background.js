@@ -60,40 +60,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 记录题目完成
   if (request.action === 'record_problem_solved') {
     const { problemId, timestamp } = request;
-    try {
-      await recordProblemSolved(problemId, timestamp);
-      sendResponse({ ok: true });
-    } catch (error) {
-      console.error('[Background] 记录题目完成失败:', error);
-      sendResponse({ ok: false, error: error.message });
-    }
-    return true;
+    recordProblemSolved(problemId, timestamp)
+      .then(() => {
+        sendResponse({ ok: true });
+      })
+      .catch(error => {
+        console.error('[Background] 记录题目完成失败:', error);
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true; // 异步响应
   }
 
   // 记录题目尝试
   if (request.action === 'record_attempt') {
     const { problemId, timestamp } = request;
-    try {
-      await recordAttempt(problemId, timestamp);
-      sendResponse({ ok: true });
-    } catch (error) {
-      console.error('[Background] 记录题目尝试失败:', error);
-      sendResponse({ ok: false, error: error.message });
-    }
-    return true;
+    recordAttempt(problemId, timestamp)
+      .then(() => {
+        sendResponse({ ok: true });
+      })
+      .catch(error => {
+        console.error('[Background] 记录题目尝试失败:', error);
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true; // 异步响应
   }
 
   // 记录学习时长
   if (request.action === 'record_learning_time') {
     const { duration, timestamp } = request;
-    try {
-      await recordLearningTime(duration, timestamp);
-      sendResponse({ ok: true });
-    } catch (error) {
-      console.error('[Background] 记录学习时长失败:', error);
-      sendResponse({ ok: false, error: error.message });
-    }
-    return true;
+    recordLearningTime(duration, timestamp)
+      .then(() => {
+        sendResponse({ ok: true });
+      })
+      .catch(error => {
+        console.error('[Background] 记录学习时长失败:', error);
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true; // 异步响应
   }
 
   // 从 popup 打开扩展内页面（Dashboard）
@@ -114,6 +117,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } catch (e) {
       sendResponse({ ok: false, error: e?.message || '无法打开页面' });
     }
+    return true;
+  }
+
+  // 测试ping消息（用于诊断）
+  if (request.action === 'test_ping') {
+    sendResponse({ 
+      ok: true, 
+      message: 'pong', 
+      timestamp: Date.now(),
+      extensionId: chrome.runtime.id
+    });
     return true;
   }
 
