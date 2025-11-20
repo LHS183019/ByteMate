@@ -337,9 +337,12 @@ app.post('/api/assist', async (req, res) => {
       samples,
       problemId,
       customPrompt,
+      responseFormat = 'text' // 新增：支持指定响应格式
     } = req.body;
 
     const basePrompt = customPrompt || `你是一个编程教师。\n`;
+    
+    // 修改：移除JSON格式要求，改为文字回复
     const fullPrompt = `${basePrompt}
 
 题目标题: ${title}
@@ -353,7 +356,7 @@ ${currentCode || '// 用户还未提交代码'}
 示例:
 ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: ${s.output}`).join('\n') : '无'}
 
-请用 JSON 格式返回你的分析结果。`;
+请用清晰易懂的文字回复，不要使用JSON格式。`;
 
     const client = getLLMClient();
     const provider = process.env.LLM_PROVIDER || 'deepseek';
@@ -380,19 +383,14 @@ ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: 
 
     const content = response.choices[0]?.message?.content || '';
 
-    // 尝试解析 JSON
-    let result;
-    try {
-      result = JSON.parse(content);
-    } catch (e) {
-      result = { content, raw: true };
-    }
+    // 修改：直接返回字符串内容，不解析JSON
+    const result = content;
 
     res.json({
       success: true,
       feature,
       problemId,
-      result,
+      result, // 现在result是字符串而非JSON对象
       timestamp: Date.now(),
     });
   } catch (error) {

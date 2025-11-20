@@ -2,6 +2,8 @@
 backend/.env
 **/.env
 .env.local
+./backend/.env
+./backend/.env.local
 
 # Node modules
 node_modules/
