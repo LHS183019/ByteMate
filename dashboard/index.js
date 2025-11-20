@@ -10,7 +10,7 @@ let storage = null;
  * 创建后备存储管理器（使用 localStorage）
  */
 function createFallbackStorage() {
-  const STORAGE_PREFIX = 'bytemate_';
+  const STORAGE_PREFIX = 'oj_';
   
   return {
     async init() {
@@ -19,7 +19,23 @@ function createFallbackStorage() {
     
     async getTodayStats() {
       const today = new Date().toISOString().split('T')[0];
-      const key = STORAGE_PREFIX + 'daily_stats_' + today;
+      const key = `${STORAGE_PREFIX}daily_stats_${today}`;
+      
+      // 尝试从Chrome存储读取
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        try {
+          const result = await new Promise((resolve) => {
+            chrome.storage.local.get([key], resolve);
+          });
+          if (result[key]) {
+            return result[key];
+          }
+        } catch (error) {
+          console.warn('Chrome存储读取失败，使用localStorage:', error);
+        }
+      }
+      
+      // 回退到localStorage
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : {
         date: today,
@@ -36,9 +52,33 @@ function createFallbackStorage() {
         const date = new Date();
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
-        const key = STORAGE_PREFIX + 'daily_stats_' + dateStr;
-        const data = localStorage.getItem(key);
-        const stats = data ? JSON.parse(data) : { completedCount: 0, duration: 0 };
+        const key = `${STORAGE_PREFIX}daily_stats_${dateStr}`;
+        
+        let stats = { completedCount: 0, duration: 0 };
+        
+        // 尝试从Chrome存储读取
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+          try {
+            const chromeResult = await new Promise((resolve) => {
+              chrome.storage.local.get([key], resolve);
+            });
+            if (chromeResult[key]) {
+              stats = chromeResult[key];
+            }
+          } catch (error) {
+            // 回退到localStorage
+            const data = localStorage.getItem(key);
+            if (data) {
+              stats = JSON.parse(data);
+            }
+          }
+        } else {
+          const data = localStorage.getItem(key);
+          if (data) {
+            stats = JSON.parse(data);
+          }
+        }
+        
         result.push({
           date: dateStr,
           completedCount: stats.completedCount || 0,
@@ -60,13 +100,45 @@ function createFallbackStorage() {
     },
     
     async getProblemsSolved() {
-      const key = STORAGE_PREFIX + 'problems_solved';
+      const key = `${STORAGE_PREFIX}problems_solved`;
+      
+      // 尝试从Chrome存储读取
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        try {
+          const result = await new Promise((resolve) => {
+            chrome.storage.local.get([key], resolve);
+          });
+          if (result[key]) {
+            return result[key];
+          }
+        } catch (error) {
+          console.warn('Chrome存储读取失败，使用localStorage:', error);
+        }
+      }
+      
+      // 回退到localStorage
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : [];
     },
     
     async getProblemDetail(problemId) {
-      const key = STORAGE_PREFIX + 'problem_details_' + problemId;
+      const key = `${STORAGE_PREFIX}problem_details_${problemId}`;
+      
+      // 尝试从Chrome存储读取
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        try {
+          const result = await new Promise((resolve) => {
+            chrome.storage.local.get([key], resolve);
+          });
+          if (result[key]) {
+            return result[key];
+          }
+        } catch (error) {
+          console.warn('Chrome存储读取失败，使用localStorage:', error);
+        }
+      }
+      
+      // 回退到localStorage
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : null;
     },
@@ -88,48 +160,107 @@ function createFallbackStorage() {
     // 模拟数据写入方法（用于测试）
     async addTestData() {
       const today = new Date().toISOString().split('T')[0];
-      const todayKey = STORAGE_PREFIX + 'daily_stats_' + today;
+      const todayKey = `${STORAGE_PREFIX}daily_stats_${today}`;
       
-      // 添加今日测试数据
-      localStorage.setItem(todayKey, JSON.stringify({
+      const todayData = {
         date: today,
         completedCount: Math.floor(Math.random() * 10) + 1,
         duration: Math.floor(Math.random() * 7200) + 300, // 5min - 2h
         tagsLearned: ['数据结构', '算法', 'C++'].slice(0, Math.floor(Math.random() * 3) + 1),
         startTime: Date.now(),
-      }));
+      };
+      
+      // 尝试使用Chrome存储
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        try {
+          await new Promise((resolve) => {
+            chrome.storage.local.set({ [todayKey]: todayData }, resolve);
+          });
+          console.log('✅ 今日数据已写入Chrome存储');
+        } catch (error) {
+          console.warn('Chrome存储失败，使用localStorage:', error);
+          localStorage.setItem(todayKey, JSON.stringify(todayData));
+        }
+      } else {
+        localStorage.setItem(todayKey, JSON.stringify(todayData));
+      }
+      
+      // 添加最近几天的数据
+      const dataToSet = {};
+      for (let i = 1; i <= 7; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayKey = `${STORAGE_PREFIX}daily_stats_${dateStr}`;
+        
+        const dayData = {
+          date: dateStr,
+          completedCount: Math.floor(Math.random() * 8) + 1,
+          duration: Math.floor(Math.random() * 6000) + 600,
+          tagsLearned: ['数组', '字符串', '动态规划', '图论'].slice(0, Math.floor(Math.random() * 3) + 1),
+          startTime: date.getTime(),
+        };
+        
+        dataToSet[dayKey] = dayData;
+        localStorage.setItem(dayKey, JSON.stringify(dayData));
+      }
       
       // 添加知识点测试数据
-      const tagsKey = STORAGE_PREFIX + 'knowledge_tags';
-      localStorage.setItem(tagsKey, JSON.stringify({
+      const tagsKey = `${STORAGE_PREFIX}knowledge_tags`;
+      const tagsData = {
         '数据结构': { name: '数据结构', progress: 80, count: 15 },
         '算法': { name: '算法', progress: 60, count: 10 },
         'C++': { name: 'C++', progress: 90, count: 20 },
         '动态规划': { name: '动态规划', progress: 40, count: 5 },
-      }));
+        '图论': { name: '图论', progress: 70, count: 12 },
+        '字符串': { name: '字符串', progress: 85, count: 18 },
+      };
+      dataToSet[tagsKey] = tagsData;
+      localStorage.setItem(tagsKey, JSON.stringify(tagsData));
       
       // 添加题目测试数据
-      const problemsKey = STORAGE_PREFIX + 'problems_solved';
-      localStorage.setItem(problemsKey, JSON.stringify(['2721', '1001', '1002', '1003']));
+      const problemsKey = `${STORAGE_PREFIX}problems_solved`;
+      const problemsList = ['2721', '1001', '1002', '1003', '1010', '1020', '1030'];
+      dataToSet[problemsKey] = problemsList;
+      localStorage.setItem(problemsKey, JSON.stringify(problemsList));
       
       // 添加题目详情
-      localStorage.setItem(STORAGE_PREFIX + 'problem_details_2721', JSON.stringify({
-        id: '2721',
-        title: 'C:文本二叉树',
-        status: 'ac',
-        tags: ['数据结构', '二叉树'],
-        solvedAt: Date.now() - 86400000, // 昨天
-      }));
+      const problems = [
+        { id: '2721', title: 'C:文本二叉树', tags: ['数据结构', '二叉树'], hours: 24 },
+        { id: '1001', title: 'A+B Problem', tags: ['基础', '入门'], hours: 1 },
+        { id: '1002', title: '排序算法', tags: ['算法', '排序'], hours: 3 },
+        { id: '1003', title: '动态规划入门', tags: ['动态规划'], hours: 6 },
+        { id: '1010', title: '图的遍历', tags: ['图论', '遍历'], hours: 12 },
+        { id: '1020', title: '字符串匹配', tags: ['字符串', '算法'], hours: 2 },
+        { id: '1030', title: '贪心算法', tags: ['贪心', '算法'], hours: 4 }
+      ];
       
-      localStorage.setItem(STORAGE_PREFIX + 'problem_details_1001', JSON.stringify({
-        id: '1001',
-        title: 'A+B Problem',
-        status: 'ac',
-        tags: ['基础', '入门'],
-        solvedAt: Date.now() - 3600000, // 1小时前
-      }));
+      problems.forEach(problem => {
+        const problemKey = `${STORAGE_PREFIX}problem_details_${problem.id}`;
+        const problemData = {
+          id: problem.id,
+          title: problem.title,
+          status: 'ac',
+          tags: problem.tags,
+          solvedAt: Date.now() - (problem.hours * 3600000),
+        };
+        dataToSet[problemKey] = problemData;
+        localStorage.setItem(problemKey, JSON.stringify(problemData));
+      });
       
-      console.log('✅ 测试数据已添加');
+      // 批量写入Chrome存储
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        try {
+          await new Promise((resolve) => {
+            chrome.storage.local.set(dataToSet, resolve);
+          });
+          console.log('✅ 所有测试数据已写入Chrome存储');
+        } catch (error) {
+          console.warn('Chrome存储批量写入失败:', error);
+        }
+      }
+      
+      console.log('✅ 测试数据已添加（包含最近7天数据）');
     }
   };
 }
@@ -141,20 +272,42 @@ async function initDashboard() {
   console.log('🚀 初始化 Dashboard...');
   
   try {
-    // 尝试使用 Chrome Extension 存储
-    if (typeof storageManager !== 'undefined' && typeof chrome !== 'undefined' && chrome.storage) {
-      console.log('✅ 使用 Chrome Extension 存储');
-      storage = storageManager;
-      await storage.init();
-    } else {
-      console.log('⚠️ Chrome Extension API 不可用，使用后备存储');
-      storage = createFallbackStorage();
-      await storage.init();
-      
-      // 如果是测试环境，添加一些测试数据
-      if (localStorage.getItem('bytemate_daily_stats_' + new Date().toISOString().split('T')[0]) === null) {
-        await storage.addTestData();
+    // 检查Chrome扩展环境
+    const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+    console.log('Chrome存储API可用:', hasChromeStorage);
+    
+    // 始终使用后备存储管理器（它会自动选择最佳存储方式）
+    storage = createFallbackStorage();
+    await storage.init();
+    console.log('✅ 存储管理器初始化完成');
+    
+    // 检查是否有数据，如果没有则生成测试数据
+    const today = new Date().toISOString().split('T')[0];
+    const todayKey = `oj_daily_stats_${today}`;
+    
+    let hasData = false;
+    if (hasChromeStorage) {
+      try {
+        const result = await new Promise((resolve) => {
+          chrome.storage.local.get([todayKey], resolve);
+        });
+        hasData = !!result[todayKey];
+      } catch (error) {
+        console.warn('检查Chrome存储数据失败:', error);
       }
+    }
+    
+    if (!hasData) {
+      const localData = localStorage.getItem(todayKey);
+      hasData = !!localData;
+    }
+    
+    // 如果没有数据，生成测试数据
+    if (!hasData) {
+      console.log('⚠️ 没有发现学习数据，生成测试数据...');
+      await storage.addTestData();
+    } else {
+      console.log('✅ 发现已有学习数据');
     }
     
     // 加载所有数据
@@ -465,6 +618,33 @@ async function refreshData() {
  * 添加事件监听
  */
 function setupEventListeners() {
+  // 刷新数据按钮
+  const refreshBtn = document.getElementById('refresh-data-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      console.log('🔄 手动刷新数据...');
+      showLoading(true);
+      await loadAllData();
+      showLoading(false);
+      console.log('✅ 数据刷新完成');
+    });
+  }
+  
+  // 添加测试数据按钮
+  const testDataBtn = document.getElementById('add-test-data-btn');
+  if (testDataBtn) {
+    testDataBtn.addEventListener('click', async () => {
+      console.log('🎲 添加测试数据...');
+      if (storage && storage.addTestData) {
+        await storage.addTestData();
+        // 刷新显示
+        setTimeout(async () => {
+          await loadAllData();
+        }, 500);
+      }
+    });
+  }
+  
   // 为题目列表项添加点击事件（跳转到题目页面）
   document.addEventListener('click', (e) => {
     const problemItem = e.target.closest('.problem-item');
@@ -482,8 +662,19 @@ function setupEventListeners() {
   if (chrome && chrome.storage) {
     chrome.storage.onChanged.addListener((changes, namespace) => {
       console.log('存储发生变化:', changes);
-      // 可以选择性地更新相关数据
-      refreshData();
+      // 检查是否有我们关心的数据变化
+      const relevantChanges = Object.keys(changes).some(key => 
+        key.startsWith('oj_daily_stats_') || 
+        key.startsWith('oj_problems_solved') ||
+        key.startsWith('oj_problem_details_')
+      );
+      
+      if (relevantChanges) {
+        console.log('检测到相关数据变化，自动刷新...');
+        setTimeout(() => {
+          refreshData();
+        }, 1000); // 延迟1秒刷新，避免频繁更新
+      }
     });
   }
 }
