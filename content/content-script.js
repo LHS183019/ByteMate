@@ -64,10 +64,18 @@ class UIManager {
       
       // 非代码块内容处理
       
-      // 1. 首先处理标题（高优先级）
+      // 1. 首先处理分割线
+      const hrMatch = line.match(/^---$/);
+      if (hrMatch) {
+        html += `<hr>\n`;
+        continue;
+      }
+      
+      // 2. 然后处理标题
       const h1Match = line.match(/^#\s+(.*)$/);
       const h2Match = line.match(/^##\s+(.*)$/);
       const h3Match = line.match(/^###\s+(.*)$/);
+      const h4Match = line.match(/^####\s+(.*)$/);
       
       if (h1Match) {
         html += `<h1>${this.processInlineMarkdown(h1Match[1])}</h1>\n`;
@@ -77,6 +85,9 @@ class UIManager {
         continue;
       } else if (h3Match) {
         html += `<h3>${this.processInlineMarkdown(h3Match[1])}</h3>\n`;
+        continue;
+      } else if (h4Match) {
+        html += `<h4>${this.processInlineMarkdown(h4Match[1])}</h4>\n`;
         continue;
       }
       
