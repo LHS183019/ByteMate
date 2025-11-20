@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加事件监听
     document.getElementById('searchInput').addEventListener('input', applyFilters);
     document.getElementById('sortFilter').addEventListener('change', applyFilters);
+    document.getElementById('langFilter').addEventListener('change', applyFilters);
     document.getElementById('difficultyFilter').addEventListener('change', applyFilters);
     document.getElementById('algorithmFilter').addEventListener('change', applyFilters);
     document.getElementById('dataStructureFilter').addEventListener('change', applyFilters);
@@ -89,9 +90,12 @@ function renderProblems(problemsToRender) {
     });
 }
 
+
+
 // 应用筛选条件
 function applyFilters() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const langauage = document.getElementById('langFilter').value;
     const difficulty = document.getElementById('difficultyFilter').value;
     const algorithm = document.getElementById('algorithmFilter').value;
     const dataStructure = document.getElementById('dataStructureFilter').value;
@@ -100,11 +104,14 @@ function applyFilters() {
         const matchesSearch = !searchTerm || problem.id.includes(searchTerm) ||
                              problem.title.toLowerCase().includes(searchTerm);
         
+        const matchesLanguage = !langauage ||
+                             (langauage === "chinese" && /[\u4e00-\u9fa5]/.test(problem.title)) ||
+                             (langauage === "english" && !/[\u4e00-\u9fa5]/.test(problem.title));
         const matchesDifficulty = !difficulty || problem.difficulty === difficulty;
         const matchesAlgorithm = !algorithm || problem.algorithms.includes(algorithm);
         const matchesDataStructure = !dataStructure || problem.data_structures.includes(dataStructure);
         
-        return matchesSearch && matchesDifficulty && matchesAlgorithm && matchesDataStructure;
+        return matchesSearch && matchesLanguage && matchesDifficulty && matchesAlgorithm && matchesDataStructure;
     });
 
     const sortBy = document.getElementById('sortFilter').value;
