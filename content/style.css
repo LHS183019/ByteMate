@@ -518,9 +518,9 @@
 	background: #e8f5e9;
 }
 
-/* 通用代码块样式 - 确保不与Markdown样式冲突 */
-pre:not(.oj-helper-markdown pre) {
-	background: #2d2d2d;
+/* 通用代码块样式 - 确保不与Markdown样式冲突，同时排除openjudge solution页面的代码显示 */
+pre:not(.oj-helper-markdown pre):not(.sh_sourceCode){
+background: #2d2d2d;
 	color: #f8f8f2;
 	border: 2px solid #000;
 	border-radius: 8px;
