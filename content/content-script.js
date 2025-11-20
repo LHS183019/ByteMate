@@ -6,6 +6,8 @@ console.log("OJ助手内容脚本已注入！");
 class UIManager {
   constructor() {
     this.currentOverlay = null;
+    this.lastResponseFeature = null;
+    this.lastResponseData = null;
   }
 
   /**
@@ -191,6 +193,10 @@ class UIManager {
    */
   showResponse(feature, result) {
     console.log('[UI Manager] 显示AI响应:', { feature, result });
+    // 保存最近的响应信息
+    this.lastResponseFeature = feature;
+    this.lastResponseData = result;
+    
     this.hideOverlay();
     const overlay = this.createOverlay();
     const content = document.createElement('div');
@@ -217,6 +223,17 @@ class UIManager {
     overlay.appendChild(content);
     this.currentOverlay = overlay;
     console.log('[UI Manager] 响应UI已成功创建并显示');
+  }
+
+  /**
+   * 重新显示最近一次的响应
+   */
+  showLastResponse() {
+    if (this.lastResponseFeature && this.lastResponseData) {
+      this.showResponse(this.lastResponseFeature, this.lastResponseData);
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -475,7 +492,7 @@ class UIManager {
       recommend: '📖 知识推荐',
       knowledge_tag: '📖 知识推荐',
     };
-    return titles[feature] || '💬 AI 回复';
+    return titles[feature] || '📝 AI 回复';
   }
 
   /**
@@ -580,6 +597,56 @@ class UIManager {
     main.title = "AI 助手";
     main.setAttribute("role", "button");
     main.setAttribute("tabindex", "0");
+    
+    // 创建显示最近回复的按钮
+    const historyBtn = document.createElement('button');
+    historyBtn.id = 'oj-helper-history-btn';
+    historyBtn.className = 'oj-helper-history-btn';
+    historyBtn.title = '查看最近回复';
+    historyBtn.setAttribute('aria-label', '查看最近回复');
+    historyBtn.innerHTML = ''; // 确保没有残留内容
+    
+    // 直接设置按钮的背景图片，避免img元素可能的问题
+    const normalImgPath = chrome.runtime.getURL('assets/ui/notebook_normal.png');
+    const activeImgPath = chrome.runtime.getURL('assets/ui/notebook_onclick.png');
+    
+    // 设置按钮样式为使用背景图片
+    historyBtn.style.backgroundImage = `url('${normalImgPath}')`;
+    historyBtn.style.backgroundSize = 'contain';
+    historyBtn.style.backgroundRepeat = 'no-repeat';
+    historyBtn.style.backgroundPosition = 'center';
+    
+    // 记录图片路径用于调试
+    console.log('历史回复按钮图片路径:', normalImgPath, activeImgPath);
+    
+    // 添加事件监听器
+    historyBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // 防止触发菜单展开
+      // 点击时切换到活动图片
+      historyBtn.style.backgroundImage = `url('${activeImgPath}')`;
+      // 短暂延迟后恢复正常图片
+      setTimeout(() => {
+        historyBtn.style.backgroundImage = `url('${normalImgPath}')`;
+      }, 200);
+      
+      if (uiManager && uiManager.showLastResponse) {
+        const success = uiManager.showLastResponse();
+        if (!success) {
+          console.log('没有可显示的历史回复');
+        }
+      }
+    });
+    
+    // 悬停效果
+    historyBtn.addEventListener('mouseenter', () => {
+      historyBtn.style.backgroundImage = `url('${activeImgPath}')`;
+    });
+    
+    historyBtn.addEventListener('mouseleave', () => {
+      historyBtn.style.backgroundImage = `url('${normalImgPath}')`;
+    });
+    
+    main.appendChild(historyBtn);
     
     // 加载小猫动画
     function loadKittenFrames(animationType = 'speaking') {

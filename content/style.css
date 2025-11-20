@@ -1,7 +1,7 @@
 /* Styles for the floating AI helper kitten and expanded menu (点击交互，像素风格) */
 #oj-helper-btn {
 	position: fixed;
-	right: 20px;
+	right: 50px;
 	bottom: 20px;
 	width: 150px;
 	height: 150px;
@@ -14,6 +14,7 @@
 	z-index: 2147483647;
 	transition: transform 160ms ease;
 	user-select: none;
+	/* 保留fixed定位的同时，使其成为历史按钮的相对定位容器 */
 }
 
 #oj-helper-btn:focus {
@@ -34,10 +35,48 @@
 	image-rendering: pixelated; /* 保持像素风格 */
 }
 
+/* 历史回复按钮样式 */
+.oj-helper-history-btn {
+	position: absolute;
+	top: -10px;
+	right: -10px;
+	background: transparent;
+	border: none;
+	border-radius: 5px;
+	width: 40px;
+	height: 40px;
+	cursor: pointer;
+	z-index: 2147483648; /* 比小猫按钮更高的层级 */
+	transition: transform 140ms ease, background-image 100ms ease;
+	/* 确保按钮可见性 */
+	display: block;
+	padding: 0;
+	/* 确保按钮大小合适 */
+	box-sizing: border-box;
+	/* 确保不被其他元素遮挡 */
+	pointer-events: auto;
+	/* 确保背景图片渲染正确 */
+	image-rendering: pixelated; /* 保持像素风格 */
+}
+
+.oj-helper-history-btn:hover {
+	background: #45a049;
+	transform: scale(1.1);
+}
+
+.oj-helper-history-btn:active {
+	transform: scale(0.95);
+	background: #3d8b40;
+}
+
+.oj-helper-history-btn:focus {
+	outline: none !important;
+}
+
 /* container for child action buttons */
 .oj-helper-menu {
   position: fixed;
-  right: 190px; /* 进一步调整为更靠左的位置 */
+  right: 220px; /* 进一步调整为更靠左的位置 */
   bottom: 80px; /* 调整为小猫高度+一些间距，确保不重叠 */
 	display: flex;
 	flex-direction: column-reverse;
