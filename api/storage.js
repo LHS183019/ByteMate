@@ -532,11 +532,11 @@ class StorageManager {
 
   // 辅助函数
   getTodayKey() {
-    return this.KEYS.DAILY_STATS + '_' + this.getDateString(new Date());
+    return this.STORAGE_KEYS.DAILY_STATS + '_' + this.getDateString(new Date());
   }
 
   getDayKey(date) {
-    return this.KEYS.DAILY_STATS + '_' + this.getDateString(date);
+    return this.STORAGE_KEYS.DAILY_STATS + '_' + this.getDateString(date);
   }
 
   getDateString(date) {
