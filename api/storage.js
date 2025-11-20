@@ -720,3 +720,39 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // 也导出Storage对象以保持向后兼容
 const Storage = storageManager;
+
+// ============ 轻量适配层（供 popup 等简单场景使用） ============
+// 提供 setStorageType/getItem/setItem 等通用方法，兼容现有 popup.js 的用法
+let __currentStrategy = new ChromeStorageStrategy('local');
+
+async function __setStorageType(type) {
+  __currentStrategy = new ChromeStorageStrategy(type === 'sync' ? 'sync' : 'local');
+  return true;
+}
+
+async function __getItem(key) {
+  return await __currentStrategy.get(key);
+}
+
+async function __setItem(key, value) {
+  return await __currentStrategy.set(key, value);
+}
+
+async function __removeItem(key) {
+  return await __currentStrategy.remove(key);
+}
+
+async function __getAll() {
+  return await __currentStrategy.getAll();
+}
+
+const storageManagerForPopup = {
+  setStorageType: __setStorageType,
+  getItem: __getItem,
+  setItem: __setItem,
+  removeItem: __removeItem,
+  getAll: __getAll,
+};
+
+// 以 ES Module 形式导出，供 extension 页面通过 <script type="module"> 引入
+export { storageManagerForPopup as StorageManager };

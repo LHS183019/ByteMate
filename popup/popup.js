@@ -212,18 +212,75 @@ async function saveSettings() {
  */
 function openDashboard() {
   const dashboardUrl = chrome.runtime.getURL('dashboard/index.html');
-  chrome.runtime.sendMessage(
-    { action: 'open_url', url: dashboardUrl },
-    (response) => {
-      if (response && response.ok) {
-        console.log('已打开 Dashboard');
-        showStatus('正在打开仪表板...', 'info');
-      } else {
-        console.error('打开 Dashboard 失败:', response);
-        showStatus('打开仪表板失败', 'error');
-      }
+  // 优先：在当前活动标签页内直接跳转
+  tryOpenInCurrentTab(dashboardUrl, (ok) => {
+    if (ok) {
+      showStatus('正在当前页打开仪表板...', 'info');
+      return;
     }
-  );
+    // 回退1：让 background 处理（若已实现）
+    try {
+      chrome.runtime.sendMessage(
+        { action: 'open_url', url: dashboardUrl, open_mode: 'current' },
+        (response) => {
+          if (chrome.runtime.lastError || !(response && response.ok)) {
+            console.warn('background 未能处理，改为新标签页');
+            // 回退2：新建标签页
+            tryOpenTabDirect(dashboardUrl);
+          } else {
+            showStatus('正在打开仪表板...', 'info');
+          }
+        }
+      );
+    } catch (e) {
+      console.warn('发送给 background 失败，改为新标签页');
+      tryOpenTabDirect(dashboardUrl);
+    }
+  });
+}
+
+function tryOpenInCurrentTab(url, cb) {
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError) {
+        console.warn('tabs.query 失败:', chrome.runtime.lastError.message);
+        cb(false);
+        return;
+      }
+      const activeTab = tabs && tabs[0];
+      if (!activeTab || !activeTab.id) {
+        cb(false);
+        return;
+      }
+      chrome.tabs.update(activeTab.id, { url }, () => {
+        if (chrome.runtime.lastError) {
+          console.warn('tabs.update 失败:', chrome.runtime.lastError.message);
+          cb(false);
+        } else {
+          cb(true);
+        }
+      });
+    });
+  } catch (e) {
+    console.warn('tryOpenInCurrentTab 异常:', e);
+    cb(false);
+  }
+}
+
+function tryOpenTabDirect(url) {
+  try {
+    chrome.tabs.create({ url }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('直接打开失败:', chrome.runtime.lastError.message);
+        showStatus('打开仪表板失败', 'error');
+      } else {
+        showStatus('正在打开仪表板...', 'info');
+      }
+    });
+  } catch (e) {
+    console.error('tabs.create 异常:', e);
+    showStatus('打开仪表板失败', 'error');
+  }
 }
 
 // ============ 通知后台脚本 ============

@@ -57,6 +57,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // 异步响应
   }
 
+  // 从 popup 打开扩展内页面（Dashboard）
+  if (request.action === 'open_url') {
+    const { url } = request || {};
+    try {
+      if (!url) {
+        sendResponse({ ok: false, error: '缺少 URL' });
+        return true;
+      }
+      chrome.tabs.create({ url }, () => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+        } else {
+          sendResponse({ ok: true });
+        }
+      });
+    } catch (e) {
+      sendResponse({ ok: false, error: e?.message || '无法打开页面' });
+    }
+    return true;
+  }
+
   sendResponse({ ok: false, error: 'Unknown action' });
 });
 
