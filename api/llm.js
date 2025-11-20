@@ -190,12 +190,12 @@ class LLMClient {
   }
 
   /**
-   * 使用提示词进行 AI 辅助（通用方法）
+   * 使用提示词进行 AI 辅助（通用方法）- 修改：返回文字而非JSON
    * @param {string} prompt - 提示词模板
    * @param {string} userCode - 用户代码
    * @param {string} userProblem - 用户问题描述
    * @param {object} options - 其他选项
-   * @returns {Promise<object>} - JSON 格式的回复
+   * @returns {Promise<string>} - 文字格式的回复
    */
   async assistWithPrompt(prompt, userCode, userProblem, options = {}) {
     try {
@@ -212,17 +212,8 @@ class LLMClient {
         maxTokens: options.maxTokens || 2500,
       });
 
-      // 尝试解析 JSON 响应
-      try {
-        return JSON.parse(response);
-      } catch (e) {
-        // 如果不是 JSON，包装成 JSON 格式
-        return {
-          type: options.type || 'general',
-          content: response,
-          raw: true,
-        };
-      }
+      // 修改：直接返回响应内容，不解析JSON
+      return response;
     } catch (error) {
       console.error('Assist with prompt failed:', error);
       throw error;
@@ -230,9 +221,10 @@ class LLMClient {
   }
 
   /**
-   * 构造完整提示词
+   * 构造完整提示词 - 修改：移除JSON格式要求
    */
   constructPrompt(basePrompt, userCode, userProblem, options = {}) {
+    // 修改：移除JSON格式要求，让AI返回自然语言
     return `${basePrompt}
 
 用户问题描述：
@@ -243,11 +235,11 @@ ${userProblem}
 ${userCode}
 \`\`\`
 
-请用 JSON 格式返回你的分析结果。确保返回的是有效的 JSON。`;
+请用清晰易懂的文字回复，不要使用JSON格式。`;
   }
 
   /**
-   * 处理题目辅助请求（统一接口）
+   * 处理题目辅助请求（统一接口）- 修改：返回文字
    */
   async assistProblem(problemInfo, customPrompt = null) {
     try {
@@ -274,6 +266,8 @@ ${userCode}
           problemId: problemInfo.problemId,
           customPrompt,
           userId: await this.getUserId(),
+          // 修改：告诉后端需要文字回复而非JSON
+          responseFormat: 'text'
         }),
         signal: AbortSignal.timeout(this.timeout),
       });
@@ -297,6 +291,7 @@ ${userCode}
         throw new Error(data.error || '请求失败');
       }
 
+      // 修改：直接返回结果，不进行JSON解析
       return data.result;
     } catch (error) {
       console.error('[assistProblem] Error:', error);
