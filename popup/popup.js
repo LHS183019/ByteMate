@@ -19,11 +19,9 @@ const STORAGE_KEYS = {
 };
 
 const MODELS = {
-  openai: 'OpenAI GPT-4',
   deepseek: 'DeepSeek',
   zhipu: 'Zhipu (智谱)',
-  qwen: 'Qwen (通义千问)',
-  groq: 'Groq'
+  qwen: 'Qwen (通义千问)'
 };
 
 // ============ DOM 元素缓存 ============
