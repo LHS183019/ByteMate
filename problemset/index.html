@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编程题目列表</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>编程题目列表</h1>
+        </header>
+        
+        <div class="search-filter-container">
+            <input type="text" class="search-box" id="searchInput" placeholder="输入ID或标题搜索题目...">
+            <div class="filter-group">
+                <select class="filter-select" id="sortFilter">
+                    <option value="id">按ID排序</option>
+                    <option value="attempts">按热度排序</option>
+                </select>
+                <select class="filter-select" id="difficultyFilter">
+                    <option value="">所有难度</option>
+                    <option value="简单">简单</option>
+                    <option value="中等">中等</option>
+                    <option value="困难">困难</option>
+                </select>
+                <select class="filter-select" id="algorithmFilter">
+                    <option value="">所有算法</option>
+                    <option value="动态规划">动态规划</option>
+                    <option value="贪心">贪心</option>
+                    <option value="递归">递归</option>
+                    <option value="深度优先搜索">深度优先搜索</option>
+                    <option value="广度优先搜索">广度优先搜索</option>
+                    <option value="字符串处理">字符串处理</option>
+                </select>
+                <select class="filter-select" id="dataStructureFilter">
+                    <option value="">所有数据结构</option>
+                    <option value="栈">栈</option>
+                    <option value="堆">堆</option>
+                    <option value="队列">队列</option>
+                    <option value="哈希表">哈希表</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="problem-list-container">
+            <ul class="problem-list" id="problemList">
+                <!-- 题目列表将通过JavaScript动态生成 -->
+            </ul>
+        </div>
+
+        <div class="pagination" id="pagination">
+            <!-- 分页按钮将通过JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>

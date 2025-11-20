@@ -33,6 +33,7 @@ const DOM = {
   togglePasswordBtn: document.getElementById('toggle-password-btn'),
   saveBtn: document.getElementById('save-btn'),
   dashboardBtn: document.getElementById('dashboard-btn'),
+  problemsetBtn: document.getElementById('problemset-btn'),
   statusMessage: document.getElementById('status-message'),
   solvedCount: document.getElementById('solved-count'),
   helpedCount: document.getElementById('helped-count'),
@@ -153,6 +154,9 @@ function attachEventListeners() {
   // 打开 Dashboard 按钮
   DOM.dashboardBtn.addEventListener('click', openDashboard);
 
+  // 打开题库
+  DOM.problemsetBtn.addEventListener('click', openProblemSet);
+
   // 帮助链接
   DOM.helpLink.addEventListener('click', (e) => {
     e.preventDefault();
@@ -237,6 +241,12 @@ function openDashboard() {
       tryOpenTabDirect(dashboardUrl);
     }
   });
+}
+
+function openProblemSet() {
+  // 在新标签页打开题库页面
+  const problemsetUrl = chrome.runtime.getURL("problemset/index.html");
+  chrome.tabs.create({ url: problemsetUrl });
 }
 
 function tryOpenInCurrentTab(url, cb) {
