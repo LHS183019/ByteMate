@@ -14,6 +14,9 @@
 		<header class="dashboard-header">
 			<h1>📚 学习进度 Dashboard</h1>
 			<p class="subtitle">OpenJudge 学习辅助系统</p>
+			<div class="header-actions">
+				<button id="refresh-data-btn" class="refresh-btn" title="刷新数据">🔄 刷新数据</button>
+			</div>
 		</header>
 
 		<!-- 主内容区域 -->
@@ -87,6 +90,7 @@
 	</div>
 
 	<!-- 脚本加载顺序很重要 -->
+	<script src="../api/storage.js"></script>
 	<script src="charts.js"></script>
 	<script src="pet.js"></script>
 	<script src="index.js"></script>

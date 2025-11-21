@@ -34,7 +34,9 @@
         "assets/*",
         "dashboard/*",
         "prompts/*",
-        "problemset/*"
+        "problemset/*",
+        "test/*",
+        "debug/*"
       ],
       "matches": ["<all_urls>"]
     }

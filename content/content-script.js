@@ -1,5 +1,175 @@
 console.log("OJ助手内容脚本已注入！");
 
+// 学习数据记录器
+class LearningTracker {
+  constructor() {
+    this.sessionStartTime = Date.now();
+    this.problemsAttempted = new Set();
+    this.setupTracking();
+  }
+
+  setupTracking() {
+    // 监控页面变化，检测AC状态
+    this.observePageChanges();
+    // 监控代码提交
+    this.observeSubmissions();
+    // 定期记录学习时长
+    this.startTimeTracking();
+  }
+
+  observePageChanges() {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          this.checkForACStatus();
+        }
+      });
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  checkForACStatus() {
+    // 检查是否有AC状态显示
+    const acIndicators = [
+      '.judge-result:contains("Accept")',
+      '.submission-result:contains("AC")',
+      'td:contains("Accepted")',
+      '.status:contains("正确")',
+      '.result:contains("AC")'
+    ];
+    
+    for (const selector of acIndicators) {
+      const element = document.querySelector(selector.split(':')[0]);
+      if (element && (element.textContent.includes('Accept') || 
+          element.textContent.includes('AC') || 
+          element.textContent.includes('正确'))) {
+        this.recordProblemSolved();
+        break;
+      }
+    }
+  }
+
+  observeSubmissions() {
+    // 监控提交表单
+    const submitForms = document.querySelectorAll('form[action*="submit"]');
+    submitForms.forEach(form => {
+      form.addEventListener('submit', () => {
+        this.recordAttempt();
+      });
+    });
+  }
+
+  startTimeTracking() {
+    // 每5分钟记录一次学习时长
+    setInterval(() => {
+      this.recordLearningTime();
+    }, 5 * 60 * 1000);
+    
+    // 页面关闭时记录时长
+    window.addEventListener('beforeunload', () => {
+      this.recordLearningTime();
+    });
+  }
+
+  async recordProblemSolved() {
+    try {
+      const problemId = this.extractProblemId();
+      if (problemId && !this.problemsAttempted.has(problemId)) {
+        this.problemsAttempted.add(problemId);
+        
+        // 发送消息给background记录数据
+        chrome.runtime.sendMessage({
+          action: 'record_problem_solved',
+          problemId: problemId,
+          timestamp: Date.now()
+        });
+        
+        console.log('[LearningTracker] 记录题目完成:', problemId);
+      }
+    } catch (error) {
+      console.error('[LearningTracker] 记录题目完成失败:', error);
+    }
+  }
+
+  async recordAttempt() {
+    try {
+      const problemId = this.extractProblemId();
+      if (problemId) {
+        chrome.runtime.sendMessage({
+          action: 'record_attempt',
+          problemId: problemId,
+          timestamp: Date.now()
+        });
+        
+        console.log('[LearningTracker] 记录题目尝试:', problemId);
+      }
+    } catch (error) {
+      console.error('[LearningTracker] 记录题目尝试失败:', error);
+    }
+  }
+
+  async recordLearningTime() {
+    try {
+      const currentTime = Date.now();
+      const duration = Math.floor((currentTime - this.sessionStartTime) / 1000);
+      
+      if (duration > 0) {
+        chrome.runtime.sendMessage({
+          action: 'record_learning_time',
+          duration: duration,
+          timestamp: currentTime
+        });
+        
+        // 重置会话开始时间
+        this.sessionStartTime = currentTime;
+        console.log('[LearningTracker] 记录学习时长:', duration, '秒');
+      }
+    } catch (error) {
+      console.error('[LearningTracker] 记录学习时长失败:', error);
+    }
+  }
+
+  extractProblemId() {
+    // 从URL或页面内容提取题目ID
+    const url = location.href;
+    
+    // 从URL提取
+    const urlMatch = url.match(/\/problems?\/([^\/?]+)|\/mooc2017problems\/([^\/?]+)/i);
+    if (urlMatch) {
+      return urlMatch[1] || urlMatch[2];
+    }
+    
+    // 从页面内容提取
+    const titleElement = document.querySelector('#pageTitle h2, .pageTitle h2, h1');
+    if (titleElement) {
+      const titleMatch = titleElement.textContent.match(/([A-Z]?\d+[A-Z]?):?/);
+      if (titleMatch) {
+        return titleMatch[1];
+      }
+    }
+    
+    // 从统计信息提取
+    const statElements = document.querySelectorAll('.problem-statistics dt');
+    for (const dt of statElements) {
+      if (dt.textContent.includes('题号') || dt.textContent.includes('Problem ID')) {
+        const dd = dt.nextElementSibling;
+        if (dd) {
+          return dd.textContent.trim();
+        }
+      }
+    }
+    
+    return null;
+  }
+}
+
+// 初始化学习追踪器
+const learningTracker = new LearningTracker();
+
 /**
  * UI 管理器 - 处理 AI 响应的显示
  */
