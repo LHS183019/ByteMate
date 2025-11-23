@@ -131,6 +131,22 @@ h1 {
     color: #7f8c8d;
 }
 
+/* 已通过的题目 - 淡绿色背景和删除线 */
+.problem-accepted {
+    /* background-color: #f5f5f5 !important; */
+    background-color: #d2f4d2 !important;
+}
+
+.problem-accepted .problem-title {
+    text-decoration: line-through;
+    color: #666;
+}
+
+/* 尝试过但未通过的题目 - 淡红色背景 */
+.problem-attempted {
+    background-color: #ffeaea !important;
+}
+
 .difficulty-tag {
     padding: 3px 10px;
     border-radius: 20px;

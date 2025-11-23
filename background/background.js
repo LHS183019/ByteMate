@@ -7,6 +7,30 @@ const problemCache = new Map();
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('[Background] Received message:', request.action);
 
+  if(request.action === 'submit-result') {
+    const {data} = request;
+    const {result, praticeId, submitTime} = data;
+    console.log(`[Background] result: ${result}, praticeId: ${praticeId}, submitTime: ${submitTime}`);
+    chrome.storage.local.get((storageData) => {
+      let problemStats = storageData.problemStats || {};
+      if(praticeId in problemStats) {
+        console.log(`${praticeId} previous result: ${problemStats[praticeId].accepted}`);
+        if(!problemStats[praticeId].accepted && result === "Accepted") {
+          problemStats[praticeId].accepted = true;
+        }
+      } else {
+        problemStats[praticeId] = {
+          "accepted": result === "Accepted"
+        };
+      }
+      chrome.storage.local.set({problemStats}, () => {
+        chrome.runtime.sendMessage({
+          action: "update-problem-stats"
+        });
+      });
+    })
+  }
+
   if (request.action === 'cache_problem') {
     // 缓存题目信息
     const { path, data } = request;
