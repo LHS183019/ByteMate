@@ -24,6 +24,10 @@
       "matches": ["*://*.openjudge.cn/*", "*://openjudge.cn/*"],
       "js": ["content/content-script.js"],
       "css": ["content/style.css"]
+    },
+    {
+      "matches": ["*://bailian.openjudge.cn/practice/solution/*/"],
+      "js": ["content/result-check.js"]
     }
   ],
 

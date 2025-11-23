@@ -3,6 +3,7 @@ let currentPage = 1;
 const problemsPerPage = 10;
 let allProblems = [];
 let filteredProblems = [];
+let allProblemStats = {};
 
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function() {
@@ -15,6 +16,17 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('difficultyFilter').addEventListener('change', applyFilters);
     document.getElementById('algorithmFilter').addEventListener('change', applyFilters);
     document.getElementById('dataStructureFilter').addEventListener('change', applyFilters);
+
+    // 监听来自background.js的消息
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        console.log(`get message: ${request.action}`);
+        if(request.action === "update-problem-stats") {
+            loadProblemStats().then(() => {
+                renderProblems(getCurrentPageProblems());
+                renderPagination(filteredProblems.length);
+            });
+        }
+    })
 });
 
 async function loadProblems() {
@@ -28,9 +40,21 @@ async function loadProblems() {
     const data = await response.json();
     allProblems = data;
     filteredProblems = [...allProblems];
-    
+
+    await loadProblemStats();
+
     renderProblems(getCurrentPageProblems());
     renderPagination(filteredProblems.length);
+}
+
+function loadProblemStats() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get((storageData) => {
+            let problemStats = storageData.problemStats || {};
+            allProblemStats = problemStats;
+            resolve();
+        });
+    }) 
 }
 
 // 获取当前页的题目
@@ -84,7 +108,19 @@ function renderProblems(problemsToRender) {
                 <span class="difficulty-tag ${difficultyClass}">${problem.difficulty}</span>
             </div>
         `;
-        
+
+        let statusClass = "";
+        if(problem.id in allProblemStats) {
+            if(allProblemStats[problem.id].accepted) {
+                statusClass = "problem-accepted";
+            } else {
+                statusClass = "problem-attempted";
+            }
+        }
+        if(statusClass) {
+            listItem.classList.add(statusClass);
+        }
+
         listItem.appendChild(link);
         problemListElement.appendChild(listItem);
     });
