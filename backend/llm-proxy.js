@@ -485,13 +485,175 @@ app.post('/api/assist', async (req, res) => {
       samples,
       problemId,
       customPrompt,
-      responseFormat = 'text' // 新增：支持指定响应格式
+      error, // 接收错误信息
+      stream = false, // 新增：支持流式控制
     } = req.body;
 
-    const basePrompt = customPrompt || `你是一个编程教师。\n`;
+    let basePrompt = customPrompt || `你是一个编程教师。\n`;
+    // 定义分隔符 - 使用更独特的标记以避免 Markdown 解析干扰
+    const SEPARATOR = '__NEXT_STEP__';
+
+    // 根据 feature 构建一次性生成所有层级的 Prompt
+    if (feature === 'guide') {
+        basePrompt = `你是一个循循善诱、温柔亲切的编程教师。请按照以下四个步骤逐步引导用户解决问题。
+**重要要求：**
+1. **语气必须温柔、和善**（例如使用“请试着”、“别着急”等）。
+2. **保持回答精简**。
+3. 每一步之间 **必须** 使用 "${SEPARATOR}" 分隔（单独占一行，不要加任何其他字符）。
+4. **必须** 输出每一步的标题（如 ## 启发引导），标题使用二级标题格式。
+5. 如果用户已经写了部分代码，请结合代码进度进行引导。
+
+## 启发引导
+- 仅提供 **1-2句** 简短的启发式引导。
+- **绝对不要** 提供代码或具体的算法名称。
+- 用温柔的反问句引导思考。
+
+${SEPARATOR}
+
+## 核心概念
+- 仅列出核心数据结构和算法名称。
+- 对关键词（如**动态规划**）进行加粗。
+- **不要** 输出代码。
+
+${SEPARATOR}
+
+## 算法流程
+- 使用清晰的步骤列表（1. 2. 3.）。
+- 仅描述逻辑，**不要** 输出代码。
+
+${SEPARATOR}
+
+## 参考代码
+- 提供完整的 C++ 或 Python 代码。
+- 包含关键注释。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+    } else if (['hint', 'idea'].includes(feature)) {
+        basePrompt = `你是一个温柔、耐心的编程顾问。用户正在编写代码，需要你的鼓励和指引。
+**重要要求：**
+1. **语气必须温柔、和善、充满鼓励**（例如“你做得很好”、“试着想一想”）。
+2. **必须基于用户当前代码**进行分析。如果代码为空，则提供起步思路。
+3. **保持回答精简但有温度**。
+4. 两部分之间 **必须** 使用 "${SEPARATOR}" 分隔（单独占一行，不要加任何其他字符）。
+5. **必须** 输出每部分的标题（使用二级标题格式）。
+
+## 下一步建议
+- 用温柔的语气分析当前代码逻辑到了哪一步。
+- **明确指出**下一步应该实现什么功能，给出一个小目标。
+- 限制在 3-5 句话以内。
+
+${SEPARATOR}
+
+## 详细解析
+- 详细解释为什么要这样做，原理是什么。
+- 提供下一步逻辑的伪代码或关键代码片段（不要直接给出完整答案，除非用户代码已接近完成）。
+- 再次给予鼓励。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+    } else if (feature === 'fix') {
+        basePrompt = `你是一个贴心的代码审查伙伴。用户代码运行出错，需要你的帮助。
+**重要要求：**
+1. **语气必须温柔、体贴**，不要让用户感到挫败。
+2. **必须基于用户当前代码和错误信息**进行分析。
+3. 两部分之间 **必须** 使用 "${SEPARATOR}" 分隔（单独占一行，不要加任何其他字符）。
+4. **必须** 输出每部分的标题（使用二级标题格式）。
+
+## 错误诊断
+- 用温和的方式指出代码中的主要问题。
+- 对错误原因进行**加粗**。
+- 限制在 3-5 句话以内。
+
+${SEPARATOR}
+
+## 修复方案
+- 详细解释错误原因，帮助用户理解。
+- 提供修复后的关键代码段或完整代码。
+- 鼓励用户继续尝试。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+    }
     
-    // 修改：移除JSON格式要求，改为文字回复
-    const fullPrompt = `${basePrompt}
+    // 根据 feature 构建一次性生成所有层级的 Prompt
+    if (feature === 'guide') {
+        basePrompt = `你是一个循循善诱、温柔亲切的编程教师。请按照以下四个步骤逐步引导用户解决问题。
+**重要要求：**
+1. **语气必须温柔、和善**（例如使用“请试着”、“别着急”等）。
+2. **保持回答精简**。
+3. 每一步之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
+4. **必须** 输出每一步的标题（如 ## 启发引导），标题使用二级标题格式。
+5. 如果用户已经写了部分代码，请结合代码进度进行引导。
+
+## 启发引导
+- 仅提供 **1-2句** 简短的启发式引导。
+- **绝对不要** 提供代码或具体的算法名称。
+- 用温柔的反问句引导思考。
+
+${SEPARATOR}
+
+## 核心概念
+- 仅列出核心数据结构和算法名称。
+- 对关键词（如**动态规划**）进行加粗。
+- **不要** 输出代码。
+
+${SEPARATOR}
+
+## 算法流程
+- 使用清晰的步骤列表（1. 2. 3.）。
+- 仅描述逻辑，**不要** 输出代码。
+
+${SEPARATOR}
+
+## 参考代码
+- 提供完整的 C++ 或 Python 代码。
+- 包含关键注释。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+    } else if (['hint', 'idea'].includes(feature)) {
+        basePrompt = `你是一个温柔、耐心的编程顾问。用户正在编写代码，需要你的鼓励和指引。
+**重要要求：**
+1. **语气必须温柔、和善、充满鼓励**（例如“你做得很好”、“试着想一想”）。
+2. **必须基于用户当前代码**进行分析。如果代码为空，则提供起步思路。
+3. **保持回答精简但有温度**。
+4. 两部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
+5. **必须** 输出每部分的标题（使用二级标题格式）。
+
+## 下一步建议
+- 用温柔的语气分析当前代码逻辑到了哪一步。
+- **明确指出**下一步应该实现什么功能，给出一个小目标。
+- 限制在 3-5 句话以内。
+
+${SEPARATOR}
+
+## 详细解析
+- 详细解释为什么要这样做，原理是什么。
+- 提供下一步逻辑的伪代码或关键代码片段（不要直接给出完整答案，除非用户代码已接近完成）。
+- 再次给予鼓励。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+    } else if (feature === 'fix') {
+        basePrompt = `你是一个贴心的代码审查伙伴。用户代码运行出错，需要你的帮助。
+**重要要求：**
+1. **语气必须温柔、体贴**，不要让用户感到挫败。
+2. **必须基于用户当前代码和错误信息**进行分析。
+3. 两部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
+4. **必须** 输出每部分的标题（使用二级标题格式）。
+
+## 错误诊断
+- 用温和的方式指出代码中的主要问题。
+- 对错误原因进行**加粗**。
+- 限制在 3-5 句话以内。
+
+${SEPARATOR}
+
+## 修复方案
+- 详细解释错误原因，帮助用户理解。
+- 提供修复后的关键代码段或完整代码。
+- 鼓励用户继续尝试。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+    }
+    
+    let fullPrompt = `${basePrompt}
 
 题目标题: ${title}
 题目描述: ${statement}
@@ -503,8 +665,14 @@ ${currentCode || '// 用户还未提交代码'}
 
 示例:
 ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: ${s.output}`).join('\n') : '无'}
+`;
 
-请用清晰易懂的文字回复，不要使用JSON格式。`;
+    // 如果有错误信息（代码纠错场景），添加到 Prompt 中
+    if (error) {
+      fullPrompt += `\n\n错误状态/信息:\n${error}\n`;
+    }
+
+    fullPrompt += `\n请直接回复分析结果。`;
 
     const client = getLLMClient(customConfig);
     const provider = customConfig.model || process.env.LLM_PROVIDER || 'deepseek';
@@ -515,8 +683,40 @@ ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: 
       zhipu: process.env.ZHIPU_MODEL || 'glm-4',
     };
 
-    console.log(`[ASSIST] Feature: ${feature}, Problem: ${problemId}`);
+    console.log(`[ASSIST] Feature: ${feature}, Problem: ${problemId}, Stream: ${stream}`);
 
+    if (stream) {
+      // 流式响应处理
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      const streamResponse = await client.chat.completions.create({
+        model: configMap[provider],
+        messages: [
+          {
+            role: 'user',
+            content: fullPrompt,
+          },
+        ],
+        temperature: 0.6,
+        max_tokens: 3000,
+        stream: true,
+      });
+
+      for await (const chunk of streamResponse) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        }
+      }
+      
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+      return;
+    }
+
+    // 非流式响应处理
     const response = await client.chat.completions.create({
       model: configMap[provider],
       messages: [
@@ -531,14 +731,14 @@ ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: 
 
     const content = response.choices[0]?.message?.content || '';
 
-    // 修改：直接返回字符串内容，不解析JSON
+    // 直接返回内容，前端会处理 Markdown
     const result = content;
 
     res.json({
       success: true,
       feature,
       problemId,
-      result, // 现在result是字符串而非JSON对象
+      result,
       timestamp: Date.now(),
     });
   } catch (error) {
