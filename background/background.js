@@ -386,7 +386,8 @@ async function invokeAIFeature(feature, context, sendResponse) {
       currentCode: context.currentCode || '',
       samples: context.samples || [],
       problemId: context.problemId || '',
-      error: context.error || ''
+      error: context.error || '',
+      customPrompt: context.customPrompt
     };
 
     console.log('[AI-Feature] Sending request using sendRequestToBackend');
@@ -414,6 +415,102 @@ async function invokeAIFeature(feature, context, sendResponse) {
       error: error.message,
       feature,
     });
+  }
+}
+
+// 监听长连接
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'ai-stream') return;
+
+  console.log('[Background] Stream connected');
+
+  port.onMessage.addListener(async (msg) => {
+    if (msg.action === 'invoke_feature_stream') {
+      let context = msg.context;
+      if (msg.context_json && !context) {
+        try {
+          context = JSON.parse(msg.context_json);
+        } catch (e) {
+          console.error('[Background] Failed to parse context_json', e);
+          port.postMessage({ type: 'error', error: 'Context parsing failed' });
+          return;
+        }
+      }
+      
+      try {
+        await invokeAIFeatureStream(context, port);
+      } catch (error) {
+        port.postMessage({ type: 'error', error: error.message });
+      }
+    }
+  });
+});
+
+/**
+ * 流式调用 AI 功能
+ */
+async function invokeAIFeatureStream(context, port) {
+  try {
+    console.log('[AI-Stream] Starting:', context.feature);
+
+    const payload = {
+      feature: context.feature,
+      title: context.title,
+      statement: context.statement,
+      currentCode: context.currentCode,
+      samples: context.samples,
+      problemId: context.problemId,
+      error: context.error || '',
+      customPrompt: context.customPrompt,
+      stream: true, // 开启流式
+    };
+
+    const backendUrl = 'http://localhost:3000/api/assist';
+
+    const response = await fetch(backendUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        port.postMessage({ type: 'done' });
+        break;
+      }
+
+      const text = decoder.decode(value);
+      const lines = text.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.content) {
+              port.postMessage({ type: 'chunk', data: data.content });
+            }
+            if (data.done) {
+              port.postMessage({ type: 'done' });
+            }
+          } catch (e) {
+            // ignore parse error
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[AI-Stream] Error:', error);
+    port.postMessage({ type: 'error', error: error.message });
   }
 }
 

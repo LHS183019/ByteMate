@@ -171,63 +171,70 @@ class LearningTracker {
 const learningTracker = new LearningTracker();
 
 /**
- * UI 管理器 - 处理 AI 响应的显示
+ * UI 管理器 - 处理 AI 响应的显示 (侧边栏 + 流式)
  */
 class UIManager {
   constructor() {
-    this.currentOverlay = null;
+    this.sidebar = null;
+    this.contentArea = null;
+    this.currentStreamContent = '';
+    this.isStreaming = false;
     this.lastResponseFeature = null;
     this.lastResponseData = null;
+    this.currentStreamTarget = null;
+    this.currentLevel = 0;
+    this.onContinue = null;
+    
+    // 流式分段处理相关
+    this.fullContent = '';
+    this.sections = [];
+    this.currentSectionIndex = 0;
+    this.waitingForContinue = false;
+    // 使用更宽松的正则匹配分隔符，匹配任意空白字符包裹的标记
+    // 更新为 __NEXT_STEP__ 以避免 Markdown 干扰
+    this.SEPARATOR_REGEX = /\s*__NEXT_STEP__\s*/;
+    
+    this.currentRequestId = 0;
+    this.closeTimer = null;
+    this.onReload = null;
   }
 
   /**
    * 简单的Markdown解析器
    */
   parseMarkdown(markdown) {
-    if (!markdown || typeof markdown !== 'string') {
-      return markdown;
-    }
+    if (!markdown || typeof markdown !== 'string') return markdown;
 
-    // 重置状态变量
     const lines = markdown.split('\n');
     let html = '';
     let inCodeBlock = false;
     let codeBlockContent = '';
     let inList = false;
-    let listType = ''; // 'ul' or 'ol'
+    let listType = ''; 
     let listItems = [];
     
-    // 逐行处理Markdown内容
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
-      let originalLine = line; // 保留原始行用于识别
+      let originalLine = line;
       
-      // 首先检查是否是代码块的开始或结束（最高优先级）
       const isCodeBlockStart = line.trim().startsWith('```');
       const isCodeBlockEnd = line.trim() === '```';
       
-      // 处理代码块状态转换
       if (isCodeBlockStart && !inCodeBlock) {
-        // 代码块开始 - 可以包含语言标识
         inCodeBlock = true;
         codeBlockContent = '';
         continue;
       } else if (isCodeBlockEnd && inCodeBlock) {
-        // 代码块结束 - 确保正确转义并添加
         const escapedCode = codeBlockContent
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-        html += `<pre><code>${escapedCode}</code></pre>\n`;
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        // 包装在 oj-helper-code-block 中，以便后续添加复制按钮
+        html += `<div class="oj-helper-code-block"><pre><code>${escapedCode}</code></pre></div>\n`;
         inCodeBlock = false;
         continue;
       }
       
-      // 如果在代码块内，直接累积内容（不进行任何其他处理）
       if (inCodeBlock) {
-        // 保留原始行内容，不做任何Markdown处理
         codeBlockContent += originalLine + '\n';
         continue;
       }
@@ -261,7 +268,6 @@ class UIManager {
         continue;
       }
       
-      // 2. 处理列表项
       const ulMatch = line.match(/^\-\s+(.*)$/);
       const olMatch = line.match(/^(\d+)\.\s+(.*)$/);
       
@@ -269,401 +275,382 @@ class UIManager {
         const currentListType = ulMatch ? 'ul' : 'ol';
         const content = ulMatch ? ulMatch[1] : olMatch[2];
         
-        // 处理列表切换或开始
         if (!inList || listType !== currentListType) {
-          if (inList) {
-            // 结束当前列表
-            html += `<${listType}>${listItems.join('')}</${listType}>\n`;
-            listItems = [];
-          }
+          if (inList) { html += `<${listType}>${listItems.join('')}</${listType}>\n`; listItems = []; }
           listType = currentListType;
           inList = true;
         }
-        
-        // 添加列表项（处理内部的Markdown格式）
         listItems.push(`<li>${this.processInlineMarkdown(content)}</li>`);
       } else {
-        // 3. 不是列表项，如果之前在列表中，结束列表
         if (inList) {
           html += `<${listType}>${listItems.join('')}</${listType}>\n`;
           listItems = [];
           inList = false;
         }
-        
-        // 处理普通行
         if (line.trim()) {
-          // 对普通文本应用行内Markdown处理（包括行内代码）
           html += `<p>${this.processInlineMarkdown(line)}</p>\n`;
         } else {
-          // 空行保留
           html += '\n';
         }
       }
     }
     
-    // 清理未闭合的列表
-    if (inList) {
-      html += `<${listType}>${listItems.join('')}</${listType}>\n`;
-    }
-    
-    // 清理未闭合的代码块（异常情况处理）
+    if (inList) html += `<${listType}>${listItems.join('')}</${listType}>\n`;
     if (inCodeBlock && codeBlockContent) {
       const escapedCode = codeBlockContent
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-      html += `<pre><code>${escapedCode}</code></pre>\n`;
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      html += `<div class="oj-helper-code-block"><pre><code>${escapedCode}</code></pre></div>\n`;
     }
     
     return html.trim();
   }
+
+  // 为代码块添加复制按钮
+  addCopyButtons(container) {
+    if (!container) return;
+    const blocks = container.querySelectorAll('.oj-helper-code-block');
+    blocks.forEach(block => {
+      if (block.querySelector('.oj-helper-copy-btn')) return; // 已添加
+
+      const btn = document.createElement('button');
+      btn.className = 'oj-helper-copy-btn';
+      btn.textContent = '复制';
+      btn.onclick = () => {
+        const code = block.querySelector('code').innerText;
+        navigator.clipboard.writeText(code).then(() => {
+          btn.textContent = '已复制';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = '复制';
+            btn.classList.remove('copied');
+          }, 2000);
+        });
+      };
+      block.appendChild(btn);
+    });
+  }
   
-  /**
-   * 处理行内Markdown格式
-   */
   processInlineMarkdown(text) {
-    // 先转义HTML特殊字符
     let processed = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     
-    // 处理粗体和斜体（注意顺序，先处理双符号）
     processed = processed
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/__(.*?)__/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/_(.*?)_/g, '<em>$1</em>');
     
-    // 处理行内代码（单个反引号包裹的内容）
-    processed = processed.replace(/`([^`]*)`/g, (match, code) => {
-      // 确保代码内容被正确转义
-      return `<code>${code}</code>`;
-    });
-    
-    // 处理链接
+    processed = processed.replace(/`([^`]*)`/g, (match, code) => `<code>${code}</code>`);
     processed = processed.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
     
     return processed;
   }
 
-  /**
-   * 显示加载状态
-   */
-  showLoading(message = 'AI 正在思考中...') {
-    this.hideOverlay();
-    const overlay = this.createOverlay();
+  createSidebar() {
+    if (this.sidebar) {
+      this.sidebar.classList.add('visible');
+      return this.sidebar;
+    }
+
+    const sidebar = document.createElement('div');
+    sidebar.className = 'oj-helper-sidebar';
+    
+    const header = document.createElement('div');
+    header.className = 'oj-helper-sidebar-header';
+    
+    const title = document.createElement('h2');
+    title.className = 'oj-helper-sidebar-title';
+    title.textContent = 'AI 助手';
+    
+    const controls = document.createElement('div');
+    controls.className = 'oj-helper-sidebar-controls';
+    
+    // 重新加载按钮
+    const reloadBtn = document.createElement('button');
+    reloadBtn.className = 'oj-helper-sidebar-reload';
+    reloadBtn.innerHTML = '↻';
+    reloadBtn.title = '重新生成';
+    reloadBtn.onclick = () => {
+        if (this.onReload) this.onReload();
+    };
+
+    // 收起按钮
+    const collapseBtn = document.createElement('button');
+    collapseBtn.className = 'oj-helper-sidebar-collapse';
+    collapseBtn.innerHTML = '✕'; // 使用叉号作为收起图标
+    collapseBtn.title = '收起';
+    collapseBtn.onclick = () => this.collapseSidebar();
+
+    // 关闭按钮 (已移除，功能合并到收起)
+    // const closeBtn = document.createElement('button');
+    // closeBtn.className = 'oj-helper-sidebar-close';
+    // closeBtn.innerHTML = '✕';
+    // closeBtn.title = '关闭';
+    // closeBtn.onclick = () => this.closeSidebar();
+    
+    controls.appendChild(reloadBtn);
+    controls.appendChild(collapseBtn);
+    // controls.appendChild(closeBtn);
+    header.appendChild(title);
+    header.appendChild(controls);
+    
     const content = document.createElement('div');
-    content.className = 'oj-helper-content';
-    content.innerHTML = `
-      <div class="oj-helper-loading">
-        <div class="oj-helper-spinner"></div>
-        <p>${message}</p>
-      </div>
-    `;
-    overlay.appendChild(content);
-    this.currentOverlay = overlay;
+    content.className = 'oj-helper-sidebar-content';
+    this.contentArea = content;
+    
+    sidebar.appendChild(header);
+    sidebar.appendChild(content);
+    
+    document.body.appendChild(sidebar);
+    
+    // Animation
+    requestAnimationFrame(() => sidebar.classList.add('visible'));
+    
+    this.sidebar = sidebar;
+    return sidebar;
   }
 
-  /**
-   * 显示 AI 响应
-   */
-  showResponse(feature, result) {
-    console.log('[UI Manager] 显示AI响应:', { feature, result });
-    // 保存最近的响应信息
-    this.lastResponseFeature = feature;
-    this.lastResponseData = result;
-    
-    this.hideOverlay();
-    const overlay = this.createOverlay();
-    const content = document.createElement('div');
-    content.className = 'oj-helper-content';
+  collapseSidebar() {
+    if (this.sidebar) {
+      this.sidebar.classList.remove('visible');
+      // 不移除 DOM，保留状态
+    }
+  }
 
-    const header = document.createElement('div');
-    header.className = 'oj-helper-header';
-    header.innerHTML = `<h2>${this.getFeatureTitle(feature)}</h2>`;
-    content.appendChild(header);
+  closeSidebar() {
+    if (this.sidebar) {
+      this.sidebar.classList.remove('visible');
+      
+      if (this.closeTimer) clearTimeout(this.closeTimer);
+      
+      this.closeTimer = setTimeout(() => {
+        if (this.sidebar) {
+          this.sidebar.remove();
+          this.sidebar = null;
+          this.contentArea = null;
+        }
+        this.closeTimer = null;
+      }, 300);
+    }
+  }
 
-    const body = document.createElement('div');
-    body.className = 'oj-helper-body';
-    
-    try {
-      const renderedContent = this.renderResult(feature, result);
-      console.log('[UI Manager] 渲染结果成功生成');
-      body.innerHTML = renderedContent;
-    } catch (e) {
-      console.error('[UI Manager] 渲染结果失败:', e);
-      body.innerHTML = `<div class="oj-helper-error">渲染失败: ${e.message}</div>`;
+  showLoading(message = 'AI 正在思考中...') {
+    // 取消可能的关闭操作
+    if (this.closeTimer) {
+        clearTimeout(this.closeTimer);
+        this.closeTimer = null;
     }
     
-    content.appendChild(body);
-    overlay.appendChild(content);
-    this.currentOverlay = overlay;
-    console.log('[UI Manager] 响应UI已成功创建并显示');
+    this.createSidebar();
+    this.contentArea.innerHTML = `
+      <div class="oj-helper-loading-indicator">
+        <span>${message}</span>
+      </div>
+    `;
+    this.isStreaming = true;
+    this.currentStreamContent = '';
   }
 
-  /**
-   * 重新显示最近一次的响应
-   */
+  initResponse(feature) {
+    // 取消可能的关闭操作
+    if (this.closeTimer) {
+        clearTimeout(this.closeTimer);
+        this.closeTimer = null;
+    }
+
+    this.createSidebar();
+    this.contentArea.innerHTML = ''; 
+    
+    const responseContainer = document.createElement('div');
+    responseContainer.className = 'oj-helper-response';
+    
+    // 创建第一个内容块
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'oj-helper-markdown-body section-0';
+    responseContainer.appendChild(contentDiv);
+    
+    this.contentArea.appendChild(responseContainer);
+    this.currentStreamTarget = contentDiv;
+    this.lastResponseFeature = feature;
+    
+    // 重置状态
+    this.fullContent = '';
+    this.sections = [];
+    this.currentSectionIndex = 0;
+    this.waitingForContinue = false;
+    this.isStreaming = true;
+    
+    // 生成新的请求ID
+    this.currentRequestId = Date.now();
+    return this.currentRequestId;
+  }
+
+  appendStreamContent(chunk, requestId) {
+    // 如果请求ID不匹配（说明是旧的流），则忽略
+    if (requestId && requestId !== this.currentRequestId) return;
+    
+    if (!this.isStreaming) return;
+    
+    // 检查用户是否在底部（允许100px的误差），如果是，则在更新内容后自动滚动
+    // 增加空值检查
+    if (!this.contentArea) return;
+    const isNearBottom = this.contentArea.scrollHeight - this.contentArea.scrollTop - this.contentArea.clientHeight < 100;
+
+    this.fullContent += chunk;
+    
+    // 分割内容
+    const parts = this.fullContent.split(this.SEPARATOR_REGEX);
+    this.sections = parts;
+    
+    // 检查是否已经接收到了下一部分的内容
+    if (this.sections.length > this.currentSectionIndex + 1) {
+        // 我们已经跨越了边界，确保当前部分完整渲染
+        const currentSectionContent = this.sections[this.currentSectionIndex];
+        if (this.currentStreamTarget) {
+            this.currentStreamTarget.innerHTML = this.parseMarkdown(currentSectionContent);
+            this.addCopyButtons(this.currentStreamTarget);
+        }
+        
+        // 如果还没有显示继续按钮，则显示
+        if (!this.waitingForContinue) {
+            this.waitingForContinue = true;
+            const nextLabel = this.getNextStepLabel(this.lastResponseFeature, this.currentSectionIndex);
+            if (nextLabel) {
+                this.renderContinueButton(nextLabel);
+            }
+        }
+    } else {
+        // 还在当前部分，正常渲染
+        const currentSectionContent = this.sections[this.currentSectionIndex];
+        if (this.currentStreamTarget) {
+            this.currentStreamTarget.innerHTML = this.parseMarkdown(currentSectionContent);
+            this.addCopyButtons(this.currentStreamTarget);
+        }
+        
+        // 只有当用户原本就在底部时才自动滚动
+        if (isNearBottom) {
+            this.contentArea.scrollTop = this.contentArea.scrollHeight;
+        }
+    }
+  }
+
+  finalizeResponse() {
+    this.isStreaming = false;
+    this.lastResponseData = this.fullContent;
+    
+    // 如果流结束了，但我们还在等待用户点击继续（即还有未显示的内容在缓冲区），
+    // 按钮应该已经显示了，不需要做额外操作。
+    // 如果流结束了，且没有未显示的内容（即所有内容都显示完了），也不需要操作。
+  }
+
+  onContinueClick() {
+      this.waitingForContinue = false;
+      this.currentSectionIndex++;
+      
+      // 移除按钮
+      const btn = this.contentArea.querySelector('.oj-helper-continue-container');
+      if(btn) btn.remove();
+      
+      // 创建新的内容块
+      const responseContainer = this.contentArea.querySelector('.oj-helper-response');
+      const newContentDiv = document.createElement('div');
+      newContentDiv.className = `oj-helper-markdown-body section-${this.currentSectionIndex}`;
+      newContentDiv.style.marginTop = '20px';
+      newContentDiv.style.borderTop = '1px dashed #ccc';
+      newContentDiv.style.paddingTop = '20px';
+      responseContainer.appendChild(newContentDiv);
+      
+      this.currentStreamTarget = newContentDiv;
+      
+      // 渲染新部分的内容（可能已经部分或全部在缓冲区里了）
+      const currentSectionContent = this.sections[this.currentSectionIndex] || '';
+      this.currentStreamTarget.innerHTML = this.parseMarkdown(currentSectionContent);
+      this.addCopyButtons(this.currentStreamTarget);
+      this.contentArea.scrollTop = this.contentArea.scrollHeight;
+      
+      // 检查是否还有下一部分（快速点击的情况）
+      if (this.sections.length > this.currentSectionIndex + 1) {
+           this.waitingForContinue = true;
+           const nextLabel = this.getNextStepLabel(this.lastResponseFeature, this.currentSectionIndex);
+           if (nextLabel) {
+               this.renderContinueButton(nextLabel);
+           }
+      }
+  }
+
+  getNextStepLabel(feature, currentIndex) {
+      if (feature === 'guide') {
+          if (currentIndex === 0) return '继续引导 (核心概念)';
+          if (currentIndex === 1) return '继续引导 (算法流程)';
+          if (currentIndex === 2) return '查看参考代码';
+      } else if (['hint', 'idea'].includes(feature)) {
+          if (currentIndex === 0) return '更详细一些';
+      } else if (feature === 'fix') {
+          if (currentIndex === 0) return '查看修复方案';
+      }
+      return null;
+  }
+
+  renderContinueButton(label) {
+    if (!this.contentArea) return;
+    // 防止重复添加
+    if (this.contentArea.querySelector('.oj-helper-continue-container')) return;
+    
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'oj-helper-continue-container';
+    
+    const btn = document.createElement('button');
+    btn.className = 'oj-helper-continue-btn';
+    btn.textContent = label;
+    
+    btn.onclick = () => {
+      this.onContinueClick();
+    };
+    
+    btnContainer.appendChild(btn);
+    this.contentArea.appendChild(btnContainer);
+    this.contentArea.scrollTop = this.contentArea.scrollHeight;
+  }
+
   showLastResponse() {
     if (this.lastResponseFeature && this.lastResponseData) {
-      this.showResponse(this.lastResponseFeature, this.lastResponseData);
+      // 恢复显示时，我们只显示第一部分，或者全部显示？
+      // 简单起见，全部显示，或者重置状态。
+      // 这里选择重置状态，像刚开始一样
+      this.initResponse(this.lastResponseFeature);
+      this.fullContent = this.lastResponseData;
+      this.sections = this.fullContent.split(this.SEPARATOR_REGEX);
+      
+      // 渲染第一部分
+      this.currentStreamTarget.innerHTML = this.parseMarkdown(this.sections[0]);
+      this.addCopyButtons(this.currentStreamTarget);
+      
+      // 如果有更多部分，显示按钮
+      if (this.sections.length > 1) {
+          this.waitingForContinue = true;
+          const nextLabel = this.getNextStepLabel(this.lastResponseFeature, 0);
+          if (nextLabel) this.renderContinueButton(nextLabel);
+      }
+      
       return true;
     }
     return false;
   }
 
-  /**
-   * 显示错误信息
-   */
   showError(message, error = null) {
-    this.hideOverlay();
-    const overlay = this.createOverlay();
-    const content = document.createElement('div');
-    content.className = 'oj-helper-content';
-    content.innerHTML = `
+    this.createSidebar();
+    this.contentArea.innerHTML = `
       <div class="oj-helper-error">
-        <h2>❌ 出错了</h2>
+        <h4>❌ 出错了</h4>
         <p>${message}</p>
         ${error ? `<pre>${String(error).substring(0, 500)}</pre>` : ''}
       </div>
     `;
-    overlay.appendChild(content);
-    this.currentOverlay = overlay;
+    this.isStreaming = false;
   }
 
-  /**
-   * 隐藏覆盖层
-   */
-  hideOverlay() {
-    if (this.currentOverlay) {
-      this.currentOverlay.remove();
-      this.currentOverlay = null;
-    }
-  }
-
-  /**
-   * 创建基础覆盖层
-   */
-  createOverlay() {
-    const overlay = document.createElement('div');
-    overlay.className = 'oj-helper-overlay';
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'oj-helper-close';
-    closeBtn.innerHTML = '✕';
-    closeBtn.type = 'button';
-    closeBtn.addEventListener('click', () => this.hideOverlay());
-    overlay.appendChild(closeBtn);
-
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
-  /**
-   * 渲染结果内容
-   */
-  renderResult(feature, result) {
-    console.log('[UI Manager] 渲染结果 - 原始数据:', result);
-    
-    // 检查是否有content字段，如果有则优先使用content
-    if (result && typeof result === 'object' && result.content !== undefined) {
-      console.log('[UI Manager] 发现content字段，使用content进行渲染');
-      return this.renderResult(feature, result.content);
-    }
-    
-    if (typeof result === 'string') {
-      console.log('[UI Manager] 渲染markdown内容');
-      const htmlContent = this.parseMarkdown(result);
-      return `<div class="oj-helper-text oj-helper-markdown">${htmlContent}</div>`;
-    }
-
-    if (typeof result !== 'object') {
-      return `<div class="oj-helper-text">${this.escapeHtml(String(result))}</div>`;
-    }
-
-    // 不同类型的结果渲染方式不同
-    switch (feature) {
-      case 'guide':
-        return this.renderGuide(result);
-      case 'hint':
-      case 'idea':
-        return this.renderIdea(result);
-      case 'fix':
-        return this.renderCodeFix(result);
-      case 'recommend':
-      case 'knowledge_tag':
-        return this.renderKnowledge(result);
-      default:
-        console.log('[UI Manager] 使用默认渲染方式');
-        return `<pre>${JSON.stringify(result, null, 2)}</pre>`;
-    }
-  }
-
-  /**
-   * 渲染问题引导
-   */
-  renderGuide(data) {
-    const content = [];
-    content.push('<div class="oj-helper-guide">');
-
-    if (data.steps && Array.isArray(data.steps)) {
-      content.push('<h3>思考步骤：</h3><ol>');
-      data.steps.forEach((step, i) => {
-        content.push(`<li>${this.escapeHtml(step)}</li>`);
-      });
-      content.push('</ol>');
-    }
-
-    if (data.keyPoints && Array.isArray(data.keyPoints)) {
-      content.push('<h3>关键点：</h3><ul>');
-      data.keyPoints.forEach((point) => {
-        content.push(`<li>${this.escapeHtml(point)}</li>`);
-      });
-      content.push('</ul>');
-    }
-
-    if (data.suggestedApproach) {
-      content.push(`<h3>建议方向：</h3><p>${this.escapeHtml(data.suggestedApproach)}</p>`);
-    }
-
-    content.push('</div>');
-    return content.join('');
-  }
-
-  /**
-   * 渲染思路提示
-   */
-  renderIdea(data) {
-    const content = [];
-    content.push('<div class="oj-helper-idea">');
-
-    if (data.overview) {
-      content.push(`<h3>总体思路：</h3><p>${this.escapeHtml(data.overview)}</p>`);
-    }
-
-    if (data.approaches && Array.isArray(data.approaches)) {
-      content.push('<h3>多种方案对比：</h3><div class="approaches">');
-      data.approaches.forEach((approach, i) => {
-        content.push(`
-          <div class="approach">
-            <h4>${this.escapeHtml(approach.name || `方案 ${i + 1}`)}</h4>
-            <p><strong>时间复杂度：</strong> ${this.escapeHtml(approach.timeComplexity || 'N/A')}</p>
-            <p><strong>空间复杂度：</strong> ${this.escapeHtml(approach.spaceComplexity || 'N/A')}</p>
-            <p>${this.escapeHtml(approach.description || '')}</p>
-          </div>
-        `);
-      });
-      content.push('</div>');
-    }
-
-    if (data.pseudocode) {
-      content.push(`<h3>伪代码：</h3><pre>${this.escapeHtml(data.pseudocode)}</pre>`);
-    }
-
-    if (data.recommendation) {
-      content.push(`<h3>推荐方案：</h3><p>${this.escapeHtml(data.recommendation)}</p>`);
-    }
-
-    content.push('</div>');
-    return content.join('');
-  }
-
-  /**
-   * 渲染代码纠错
-   */
-  renderCodeFix(data) {
-    const content = [];
-    content.push('<div class="oj-helper-fix">');
-
-    if (data.hasErrors) {
-      content.push('<h3>❌ 发现问题：</h3>');
-
-      if (data.errors && Array.isArray(data.errors)) {
-        content.push('<div class="errors">');
-        data.errors.forEach((err) => {
-          const severity = err.severity || 'error';
-          const icon = severity === 'error' ? '❌' : '⚠️';
-          content.push(`
-            <div class="error error-${severity}">
-              <p><strong>${icon} ${this.escapeHtml(err.title || '错误')}</strong></p>
-              <p>位置：${this.escapeHtml(err.location || 'N/A')}</p>
-              <p>${this.escapeHtml(err.description || '')}</p>
-            </div>
-          `);
-        });
-        content.push('</div>');
-      }
-    } else {
-      content.push('<h3>✅ 代码看起来没有问题！</h3>');
-    }
-
-    if (data.improvements && Array.isArray(data.improvements)) {
-      content.push('<h3>优化建议：</h3><div class="improvements">');
-      data.improvements.forEach((imp) => {
-        content.push(`
-          <div class="improvement">
-            <p><strong>${this.escapeHtml(imp.title || '优化')}</strong></p>
-            <p>${this.escapeHtml(imp.suggestion || '')}</p>
-          </div>
-        `);
-      });
-      content.push('</div>');
-    }
-
-    content.push('</div>');
-    return content.join('');
-  }
-
-  /**
-   * 渲染知识点推荐
-   */
-  renderKnowledge(data) {
-    const content = [];
-    content.push('<div class="oj-helper-knowledge">');
-
-    if (data.tags && Array.isArray(data.tags)) {
-      content.push('<h3>涉及知识点：</h3><div class="tags">');
-      data.tags.forEach((category) => {
-        content.push(`<div class="tag-category"><strong>${this.escapeHtml(category.category)}</strong>:`);
-        if (category.items && Array.isArray(category.items)) {
-          category.items.forEach((item) => {
-            const relevanceIcon = item.relevance === '高' ? '🔴' : item.relevance === '中' ? '🟡' : '🟢';
-            content.push(`
-              <span class="tag-item relevance-${item.relevance}">
-                ${relevanceIcon} ${this.escapeHtml(item.name)}
-              </span>
-            `);
-          });
-        }
-        content.push('</div>');
-      });
-      content.push('</div>');
-    }
-
-    if (data.learningPath) {
-      content.push(`<h3>学习路径：</h3><p>${this.escapeHtml(data.learningPath)}</p>`);
-    }
-
-    if (data.relatedProblems && Array.isArray(data.relatedProblems)) {
-      content.push('<h3>相关题目：</h3><ul>');
-      data.relatedProblems.forEach((prob) => {
-        content.push(`<li>${this.escapeHtml(prob)}</li>`);
-      });
-      content.push('</ul>');
-    }
-
-    content.push('</div>');
-    return content.join('');
-  }
-
-  /**
-   * 获取功能标题
-   */
   getFeatureTitle(feature) {
     const titles = {
       guide: '📚 问题引导',
@@ -676,9 +663,6 @@ class UIManager {
     return titles[feature] || '📝 AI 回复';
   }
 
-  /**
-   * HTML 转义
-   */
   escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -758,9 +742,12 @@ class UIManager {
   // 简单页面类型检测
   function detectPageType() {
     const href = location.href;
+    // 结果页：包含 /solution/ 或 /submission/
     if (/\/solution\//.test(href) || /\/submission\//.test(href)) return 'result';
-    if (/\/submit\/?$/.test(href) || /\/submit\//.test(href) || document.querySelector('form[action*="submit"]') || document.querySelector('textarea') || document.querySelector('.CodeMirror')) return 'edit';
-    // 检查是否有题面主体
+    // 提交页：包含 /submit/
+    if (/\/submit\/?$/.test(href) || /\/submit\//.test(href)) return 'submit';
+    // 题目页：通常是数字+字母结尾，或者没有特定后缀，且包含题目内容
+    // 排除 submit 和 result 后，如果有题面主体，认为是题目页
     if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) return 'problem';
     return 'other';
   }
@@ -853,14 +840,20 @@ class UIManager {
     let currentFrame = 0;
     
     // 添加点击事件监听器，在speaking和idle动画之间来回切换
-    main.addEventListener('click', function() {
-      // 在speaking和idle动画之间切换
-      currentAnimationType = currentAnimationType === 'speaking' ? 'idle' : 'speaking';
-      // 加载对应动画帧
-      frames = loadKittenFrames(currentAnimationType);
-      // 重置当前帧索引，确保从第一帧开始
-      currentFrame = 0;
-    });
+    // main.addEventListener('click', function() {
+    //   // 如果侧边栏已创建但被收起，点击小猫时重新显示
+    //   if (uiManager && uiManager.sidebar && !uiManager.sidebar.classList.contains('visible')) {
+    //     uiManager.sidebar.classList.add('visible');
+    //     return; // 仅显示侧边栏，不切换动画或展开菜单
+    //   }
+
+    //   // 在speaking和idle动画之间切换
+    //   currentAnimationType = currentAnimationType === 'speaking' ? 'idle' : 'speaking';
+    //   // 加载对应动画帧
+    //   frames = loadKittenFrames(currentAnimationType);
+    //   // 重置当前帧索引，确保从第一帧开始
+    //   currentFrame = 0;
+    // });
     
     function animateKitten() {
       kittenImg.src = frames[currentFrame];
@@ -890,13 +883,15 @@ class UIManager {
 
     // 检测页面类型
     const pageType = detectPageType();
+    console.log('[Content-Script] Detected page type:', pageType);
     
     // 根据页面类型过滤可用的功能
     const availableFeatures = features.filter((f) => {
-      if (f.key === 'guide') return pageType === 'problem'; //问题引导仅能在题目界面触发
-      if (f.key === 'hint') return pageType === 'problem'; //思路提示仅能在题目界面触发
-      if (f.key === 'fix') return pageType === 'result';  //代码纠错仅能在提交结果界面触发
-      return true; // recommend 和 pet 在任何页面都可用
+      if (f.key === 'guide') return pageType === 'problem'; // 问题引导仅能在题目界面触发
+      if (f.key === 'hint') return pageType === 'submit';   // 思路提示仅能在提交界面触发 (原 idea 对应 hint)
+      if (f.key === 'fix') return pageType === 'result';    // 代码纠错仅能在提交结果界面触发
+      if (f.key === 'recommend') return true;               // 知识推荐在任何页面都可用
+      return false; 
     });
 
     // 创建动作按钮（仅显示可用的功能）
@@ -1050,93 +1045,158 @@ class UIManager {
     }
 
     // 点击动作时的处理
-    function onActionClick(key) {
+    function onActionClick(key, forceReload = false) {
       console.log("AI 助手 action:", key);
-      // 页面类型检查已在按钮创建时处理，此处无需再次检查
       
-      // 确保在使用uiManager之前，loadUIManager()已经完成
-      loadUIManager().then(() => {
+      loadUIManager().then(async () => {
+        // 如果侧边栏已存在且功能类型一致，且不是强制刷新，直接显示而不重新加载
+        if (!forceReload && uiManager && uiManager.sidebar && uiManager.lastResponseFeature === key) {
+          uiManager.sidebar.classList.add('visible');
+          return;
+        }
+        
+        if (uiManager) {
+            uiManager.onReload = () => onActionClick(key, true);
+        }
+
         let maybe = null;
         try { maybe = getProblemContext(); } catch (e) { maybe = {}; }
 
-      function fetchCachedFromBackground(path) {
-        return new Promise((resolve) => {
-          try {
-            chrome.runtime.sendMessage({ action: 'get_cached_problem', path }, (resp) => {
-              if (resp && resp.ok && resp.data) resolve({ source: 'background', data: resp.data, path: resp.path });
-              else resolve(null);
-            });
-          } catch (e) { resolve(null); }
-        });
-      }
+        function fetchCachedFromBackground(path) {
+          return new Promise((resolve) => {
+            try {
+              chrome.runtime.sendMessage({ action: 'get_cached_problem', path }, (resp) => {
+                if (resp && resp.ok && resp.data) resolve({ source: 'background', data: resp.data, path: resp.path });
+                else resolve(null);
+              });
+            } catch (e) { resolve(null); }
+          });
+        }
 
-      const handleContext = async (context) => {
-        if (!context) context = {};
-        let usedSource = 'direct';
-        let usedContext = context;
-        
-        if ((!context.statement || context.statement === '') && pageType !== 'problem') {
-          const fromBg = await fetchCachedFromBackground(normalizeProblemPath(location.href));
-          if (fromBg && fromBg.data) {
-            usedSource = 'background';
-            usedContext = fromBg.data;
+        async function loadPromptContent(featureKey) {
+          try {
+            const fileMap = {
+              'guide': 'guide.txt',
+              'hint': 'idea.txt',
+              'fix': 'code_fix.txt',
+              'recommend': 'knowledge_tag.txt'
+            };
+            const filename = fileMap[featureKey];
+            if (!filename) return null;
+            
+            const url = chrome.runtime.getURL(`prompts/${filename}`);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to load prompt: ${filename}`);
+            return await response.text();
+          } catch (e) {
+            console.error('[Content-Script] Failed to load prompt:', e);
+            return null;
           }
         }
 
-        const currentCode = getCurrentCodeFromPage();
-        const errorInfo = (pageType === 'result') ? extractErrorInfo() : '';
+        const handleContext = async (context) => {
+          if (!context) context = {};
+          let usedSource = 'direct';
+          let usedContext = context;
+          
+          if ((!context.statement || context.statement === '') && pageType !== 'problem') {
+            const fromBg = await fetchCachedFromBackground(normalizeProblemPath(location.href));
+            if (fromBg && fromBg.data) {
+              usedSource = 'background';
+              usedContext = fromBg.data;
+            }
+          }
 
-        const payload = {
-          feature: key,
-          pageType,
-          title: String((usedContext && usedContext.title) ? usedContext.title : ''),
-          statement: String((usedContext && usedContext.statement) ? usedContext.statement : ''),
-          samples: (usedContext && usedContext.samples) ? usedContext.samples : [],
-          currentCode: String(currentCode || (usedContext && usedContext.currentCode) || ''),
-          tags: (usedContext && usedContext.tags) ? usedContext.tags : [],
-          problemId: String((usedContext && usedContext.problemId) ? usedContext.problemId : ''),
-          url: String((usedContext && usedContext.url) ? usedContext.url : location.href),
-          error: String(errorInfo || ''),
-          _debug_source: usedSource,
+          const currentCode = getCurrentCodeFromPage();
+          const errorInfo = (pageType === 'result') ? extractErrorInfo() : '';
+          const customPrompt = await loadPromptContent(key);
+
+          const payload = {
+            feature: key,
+            pageType,
+            title: String((usedContext && usedContext.title) ? usedContext.title : ''),
+            statement: String((usedContext && usedContext.statement) ? usedContext.statement : ''),
+            samples: (usedContext && usedContext.samples) ? usedContext.samples : [],
+            currentCode: String(currentCode || (usedContext && usedContext.currentCode) || ''),
+            tags: (usedContext && usedContext.tags) ? usedContext.tags : [],
+            problemId: String((usedContext && usedContext.problemId) ? usedContext.problemId : ''),
+            url: String((usedContext && usedContext.url) ? usedContext.url : location.href),
+            error: String(errorInfo || ''),
+            customPrompt: customPrompt,
+            _debug_source: usedSource,
+            stream: true
+          };
+
+          // 显示加载状态
+          if (uiManager && uiManager.showLoading) {
+             uiManager.showLoading('AI 正在思考中...');
+          }
+
+          try {
+            const context_json = JSON.stringify(payload);
+            
+            // 使用长连接进行流式传输
+            const port = chrome.runtime.connect({ name: 'ai-stream' });
+            
+            // 发送初始请求
+            port.postMessage({ 
+                action: "invoke_feature_stream", 
+                feature: key, 
+                context_json 
+            });
+
+            // 初始化响应UI
+            let currentRequestId = null;
+            if (uiManager && uiManager.initResponse) {
+                currentRequestId = uiManager.initResponse(key);
+            }
+
+            port.onMessage.addListener((msg) => {
+                if (msg.type === 'chunk') {
+                    if (uiManager && uiManager.appendStreamContent) {
+                        uiManager.appendStreamContent(msg.data, currentRequestId);
+                    }
+                } else if (msg.type === 'done') {
+                    if (uiManager && uiManager.finalizeResponse) {
+                        uiManager.finalizeResponse();
+                    }
+                    port.disconnect();
+                } else if (msg.type === 'error') {
+                    if (uiManager && uiManager.showError) {
+                        uiManager.showError(msg.error || '未知错误');
+                    }
+                    port.disconnect();
+                }
+            });
+
+            port.onDisconnect.addListener(() => {
+                if (chrome.runtime.lastError) {
+                    console.error('Port disconnected due to error:', chrome.runtime.lastError);
+                    if (uiManager && uiManager.showError) {
+                        uiManager.showError('连接断开: ' + chrome.runtime.lastError.message);
+                    }
+                }
+            });
+
+          } catch (e) {
+            console.error('[Content-Script] Connection failed', e);
+            if (uiManager && uiManager.showError) {
+                uiManager.showError('无法连接到 AI 服务');
+            }
+          }
         };
 
-        // 显示加载状态
-        showLoading('AI 正在思考中...');
-
-        try {
-          const context_json = JSON.stringify(payload);
-          chrome.runtime.sendMessage({ action: "invoke_feature", feature: key, context_json }, (resp) => {
-            console.log("[Content-Script] background response:", resp);
-            
-            if (resp && resp.success) {
-              // 显示 AI 响应
-              showResponse(key, resp.result);
-            } else {
-              // 显示错误
-              showError(
-                resp?.error || '请求失败，请重试',
-                resp?.error
-              );
-            }
+        if (maybe && typeof maybe.then === 'function') {
+          maybe.then(handleContext).catch(e => { 
+            console.warn('[Content-Script] 解析题面失败', e);
+            showError('无法解析题目信息');
           });
-        } catch (e) {
-          console.error('[Content-Script] 发送消息失败', e);
-          showError('无法连接到 AI 服务，请确保后端已启动');
+        } else {
+          handleContext(maybe);
         }
-      };
 
-      if (maybe && typeof maybe.then === 'function') {
-        maybe.then(handleContext).catch(e => { 
-          console.warn('[Content-Script] 解析题面失败', e);
-          showError('无法解析题目信息');
-        });
-      } else {
-        handleContext(maybe);
-      }
-
-      // 点击菜单选项后收起菜单
-      setExpanded(false);
-        });
+        setExpanded(false);
+      });
     }
 
     // 将解析逻辑拆分为可以对任意 Document 运行的函数（用于 fetch 回退解析）
