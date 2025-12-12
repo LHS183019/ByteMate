@@ -6,6 +6,30 @@ const STORAGE_KEYS = {
   API_KEY: 'bytemate_api_key'
 };
 
+// LLM 提供商配置
+const PROVIDER_CONFIG = {
+  deepseek: {
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-chat'
+  },
+  qwen: {
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-plus'
+  },
+  zhipu: {
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    model: 'glm-4'
+  },
+  openai: {
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4'
+  },
+  groq: {
+    baseUrl: 'https://api.groq.com/openai/v1',
+    model: 'llama3-70b-8192'
+  }
+};
+
 // 题目缓存存储（内存缓存）
 const problemCache = new Map();
 
@@ -13,6 +37,14 @@ const problemCache = new Map();
 let appConfig = {
   model: null,
   apiKey: null
+};
+
+// 默认配置（内置 Key）
+// ⚠️ 注意：在客户端代码中硬编码 API Key 存在安全风险。
+// 建议仅在内部测试或受信任环境中使用。
+const DEFAULT_CONFIG = {
+  model: 'deepseek',
+  apiKey: 'sk-YOURAPIKEY' // TODO: 请在此处填入您的默认 API Key
 };
 
 // 工具函数：从local storage获取值
@@ -32,11 +64,16 @@ function getFromStorage(key) {
 async function initializeConfig() {
   try {
     // 从local storage加载配置
-    appConfig.model = await getFromStorage(STORAGE_KEYS.MODEL);
-    appConfig.apiKey = await getFromStorage(STORAGE_KEYS.API_KEY);
+    const storedModel = await getFromStorage(STORAGE_KEYS.MODEL);
+    const storedApiKey = await getFromStorage(STORAGE_KEYS.API_KEY);
+
+    // 使用存储的配置，如果不存在则使用默认配置
+    appConfig.model = storedModel || DEFAULT_CONFIG.model;
+    appConfig.apiKey = storedApiKey || DEFAULT_CONFIG.apiKey;
     
     console.log('[Background] 配置初始化完成:', {
       model: appConfig.model,
+      usingDefaultKey: !storedApiKey,
       hasApiKey: !!appConfig.apiKey
     });
   } catch (error) {
@@ -44,131 +81,146 @@ async function initializeConfig() {
   }
 }
 
-// 发送请求到后端API，包含用户配置
-async function sendRequestToBackend(endpoint, data) {
-  const backendUrl = 'http://localhost:3000';
-  const url = `${backendUrl}${endpoint}`;
-  
-  try {
-    // 确保配置已初始化
-    if (!appConfig) {
-      await initializeConfig();
-    }
-    
-    // 合并用户配置到请求数据
-    const requestData = {
-      ...data,
-      model: appConfig.model,
-      apiKey: appConfig.apiKey
-    };
-    
-    console.log('发送请求到后端:', { endpoint, model: requestData.model });
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestData)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('发送请求到后端失败:', error);
-    throw error;
+// 生成 Prompt
+function generatePrompt(context) {
+  const {
+    feature,
+    title,
+    statement,
+    currentCode,
+    samples,
+    customPrompt,
+    error
+  } = context;
+
+  let basePrompt = customPrompt || `你是一个编程教师。\n`;
+  const SEPARATOR = '__NEXT_STEP__';
+
+  if (feature === 'guide') {
+    basePrompt = `你是一个循循善诱、温柔亲切的编程教师。请按照以下四个步骤逐步引导用户解决问题。
+**重要要求：**
+1. **语气必须温柔、和善**（例如使用“请试着”、“别着急”等）。
+2. **保持回答精简**。
+3. 每一步之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
+4. **必须** 输出每一步的标题（如 ## 启发引导），标题使用二级标题格式。
+5. 如果用户已经写了部分代码，请结合代码进度进行引导。
+6. **涉及代码时，默认使用 C++**。
+
+## 启发引导
+- 仅提供 **1-2句** 简短的启发式引导。
+- **绝对不要** 提供代码或具体的算法名称。
+- 用温柔的反问句引导思考。
+
+${SEPARATOR}
+
+## 核心概念
+- 仅列出核心数据结构和算法名称。
+- 对关键词（如**动态规划**）进行加粗。
+- **不要** 输出代码。
+
+${SEPARATOR}
+
+## 算法流程
+- 使用清晰的步骤列表（1. 2. 3.）。
+- 仅描述逻辑，**不要** 输出代码。
+
+${SEPARATOR}
+
+## 参考代码
+- 提供完整的 C++ 代码。
+- 包含关键注释。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+  } else if (['hint', 'idea'].includes(feature)) {
+    basePrompt = `你是一个温柔、耐心的编程顾问。用户正在编写代码，需要你的鼓励和指引。
+**重要要求：**
+1. **语气必须温柔、和善、充满鼓励**（例如“你做得很好”、“试着想一想”）。
+2. **必须基于用户当前代码**进行分析。如果代码为空，则提供起步思路。
+3. **保持回答精简但有温度**。
+4. 两部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
+5. **必须** 输出每部分的标题（使用二级标题格式）。
+6. **涉及代码时，默认使用 C++**。
+
+## 下一步建议
+- 用温柔的语气分析当前代码逻辑到了哪一步。
+- **明确指出**下一步应该实现什么功能，给出一个小目标。
+- 限制在 3-5 句话以内。
+
+${SEPARATOR}
+
+## 详细解析
+- 详细解释为什么要这样做，原理是什么。
+- 提供下一步逻辑的伪代码或关键代码片段（不要直接给出完整答案，除非用户代码已接近完成）。
+- 再次给予鼓励。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
+  } else if (feature === 'fix') {
+    basePrompt = `你是一个贴心的代码审查伙伴。用户代码运行出错，需要你的帮助。
+**重要要求：**
+1. **语气必须温柔、体贴**，不要让用户感到挫败。
+2. **必须基于用户当前代码和错误信息**进行分析。
+3. 两部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
+4. **必须** 输出每部分的标题（使用二级标题格式）。
+5. **涉及代码时，默认使用 C++**。
+
+## 错误诊断
+- 用温和的方式指出代码中的主要问题。
+- 对错误原因进行**加粗**。
+- 限制在 3-5 句话以内。
+
+${SEPARATOR}
+
+## 修复方案
+- 详细解释错误原因，帮助用户理解。
+- 提供修复后的关键代码段或完整代码。
+- 鼓励用户继续尝试。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
   }
+
+  let fullPrompt = `${basePrompt}
+
+题目标题: ${title}
+题目描述: ${statement}
+
+当前用户代码:
+\`\`\`cpp
+${currentCode || '// 用户还未提交代码'}
+\`\`\`
+
+示例:
+${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: ${s.output}`).join('\n') : '无'}
+`;
+
+  if (error) {
+    fullPrompt += `\n\n错误状态/信息:\n${error}\n`;
+  }
+
+  fullPrompt += `\n请直接回复分析结果。`;
+  return fullPrompt;
+}
+
+// 获取 LLM 配置
+function getLLMConfig() {
+  const providerMap = {
+    'OpenAI GPT-4': 'openai',
+    'DeepSeek': 'deepseek',
+    'Zhipu (智谱)': 'zhipu',
+    'Qwen (通义千问)': 'qwen',
+    'Groq': 'groq'
+  };
+  
+  const normalizedProvider = providerMap[appConfig.model] || 'deepseek';
+  const config = PROVIDER_CONFIG[normalizedProvider];
+  
+  return {
+    ...config,
+    apiKey: appConfig.apiKey
+  };
 }
 
 // 初始化配置
 initializeConfig();
-
-// 向backend同步配置
-async function syncConfigToBackend() {
-  try {
-    // 检查配置是否存在
-    if (!appConfig || !appConfig.model) {
-      console.error('配置同步失败: 配置未初始化或模型未选择');
-      throw new Error('配置未初始化或模型未选择');
-    }
-    
-    const backendUrl = 'http://localhost:3000';
-    
-    // 将前端模型名称转换为后端使用的格式
-    const providerMap = {
-      'OpenAI GPT-4': 'openai',
-      'DeepSeek': 'deepseek',
-      'Zhipu (智谱)': 'zhipu',
-      'Qwen (通义千问)': 'qwen',
-      'Groq': 'groq'
-    };
-    
-    const normalizedProvider = providerMap[appConfig.model] || 'deepseek';
-    
-    // 准备更新的数据
-    const configData = {
-      provider: normalizedProvider,
-      apiKeys: {}
-    };
-    
-    // 只更新对应提供商的API密钥
-    configData.apiKeys[normalizedProvider] = appConfig.apiKey || '';
-    
-    console.log('正在同步配置到backend:', {
-      provider: normalizedProvider,
-      backendUrl: backendUrl,
-      hasApiKey: !!appConfig.apiKey
-    });
-    
-    // 添加超时处理
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-    
-    try {
-      const response = await fetch(`${backendUrl}/api/config`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(configData),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorDetails = await response.text().catch(() => '无法获取错误详情');
-        console.error(`配置同步失败: HTTP错误 ${response.status}`, errorDetails);
-        throw new Error(`HTTP错误! 状态码: ${response.status} - ${errorDetails}`);
-      }
-      
-      const result = await response.json();
-      console.log('配置同步成功:', result);
-      return result;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if (error.name === 'AbortError') {
-        console.error('配置同步失败: 请求超时（10秒）');
-        throw new Error('请求超时，请检查后端服务是否正常运行');
-      }
-      
-      // 网络错误特殊处理
-      if (!error.message.includes('HTTP')) {
-        console.error('配置同步失败: 网络错误或后端服务未运行', error);
-        throw new Error(`网络错误: ${error.message || '无法连接到后端服务'}`);
-      }
-      
-      throw error;
-    }
-  } catch (error) {
-    console.error('配置同步失败:', error);
-    throw error;
-  }
-}
 
 // 监听来自 content-script 和 popup 的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -187,16 +239,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 重新初始化配置以获取最新的API密钥
     initializeConfig()
       .then(() => {
-        // 同步配置到backend
-        return syncConfigToBackend();
-      })
-      .then(() => {
-        sendResponse({ ok: true, message: '配置已更新并同步到后端' });
+        sendResponse({ ok: true, message: '配置已更新' });
       })
       .catch(error => {
-        console.error('配置同步失败:', error);
-        // 即使同步失败，本地配置仍已更新，返回成功
-        sendResponse({ ok: true, message: '本地配置已更新，但同步到后端失败', error: error.message });
+        console.error('配置更新失败:', error);
+        sendResponse({ ok: false, error: error.message });
       });
     
     return true;
@@ -362,12 +409,6 @@ async function invokeAIFeature(feature, context, sendResponse) {
     await initializeConfig();
     
     console.log('[AI-Feature] Starting:', feature);
-    console.log('[AI-Feature] Context:', {
-      feature: context.feature,
-      pageType: context.pageType,
-      title: context.title,
-      codeLength: context.currentCode?.length || 0,
-    });
 
     // 检查配置
     if (!appConfig.apiKey) {
@@ -377,36 +418,45 @@ async function invokeAIFeature(feature, context, sendResponse) {
     if (!appConfig.model) {
       throw new Error('未选择模型');
     }
+
+    const llmConfig = getLLMConfig();
+    const prompt = generatePrompt({ ...context, feature });
     
-    // 准备请求数据，确保所有必要字段都有默认值
-    const requestData = {
-      feature: context.feature || feature,
-      title: context.title || '',
-      statement: context.statement || '',
-      currentCode: context.currentCode || '',
-      samples: context.samples || [],
-      problemId: context.problemId || '',
-      error: context.error || '',
-      customPrompt: context.customPrompt
-    };
+    console.log('[AI-Feature] Sending request to LLM Provider:', llmConfig.baseUrl);
 
-    console.log('[AI-Feature] Sending request using sendRequestToBackend');
-
-    // 使用sendRequestToBackend函数发送请求
-    const result = await sendRequestToBackend('/api/assist', requestData);
-
-    console.log('[AI-Feature] Success:', {
-      success: result.success,
-      feature: result.feature,
-      resultType: typeof result.result,
+    const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${llmConfig.apiKey}`
+      },
+      body: JSON.stringify({
+        model: llmConfig.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.6,
+        max_tokens: 3000
+      })
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        throw new Error('API Key 无效或已过期，请在设置中检查您的 API Key。');
+      }
+      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const result = data.choices[0]?.message?.content || '';
+
+    console.log('[AI-Feature] Success');
 
     // 返回结果给 content-script
     sendResponse({
-      success: result.success,
+      success: true,
       feature,
-      result: result.result,
-      timestamp: result.timestamp || Date.now(),
+      result: result,
+      timestamp: Date.now(),
     });
   } catch (error) {
     console.error('[AI-Feature] Error:', error.message);
@@ -452,30 +502,35 @@ chrome.runtime.onConnect.addListener((port) => {
 async function invokeAIFeatureStream(context, port) {
   try {
     console.log('[AI-Stream] Starting:', context.feature);
+    
+    // 确保使用最新的配置
+    await initializeConfig();
 
-    const payload = {
-      feature: context.feature,
-      title: context.title,
-      statement: context.statement,
-      currentCode: context.currentCode,
-      samples: context.samples,
-      problemId: context.problemId,
-      error: context.error || '',
-      customPrompt: context.customPrompt,
-      stream: true, // 开启流式
-    };
+    if (!appConfig.apiKey) throw new Error('未配置 API Key');
+    if (!appConfig.model) throw new Error('未选择模型');
 
-    const backendUrl = 'http://localhost:3000/api/assist';
+    const llmConfig = getLLMConfig();
+    const prompt = generatePrompt(context);
 
-    const response = await fetch(backendUrl, {
+    const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${llmConfig.apiKey}`
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        model: llmConfig.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.6,
+        max_tokens: 3000,
+        stream: true
+      })
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('API Key 无效或已过期，请在设置中检查您的 API Key。');
+      }
       throw new Error(`HTTP ${response.status}`);
     }
 
@@ -494,13 +549,16 @@ async function invokeAIFeatureStream(context, port) {
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') {
+            port.postMessage({ type: 'done' });
+            break;
+          }
           try {
-            const data = JSON.parse(line.slice(6));
-            if (data.content) {
-              port.postMessage({ type: 'chunk', data: data.content });
-            }
-            if (data.done) {
-              port.postMessage({ type: 'done' });
+            const data = JSON.parse(jsonStr);
+            const content = data.choices[0]?.delta?.content;
+            if (content) {
+              port.postMessage({ type: 'chunk', data: content });
             }
           } catch (e) {
             // ignore parse error

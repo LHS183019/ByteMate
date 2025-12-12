@@ -633,20 +633,22 @@ background: #2d2d2d;
 .oj-helper-sidebar {
   position: fixed;
   top: 0;
-  right: -520px; /* 初始隐藏 */
+  right: 0;
   width: 500px; /* 加宽 */
   height: 100vh;
   background: #ffffff;
   box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
   z-index: 2147483648;
-  transition: right 0.3s ease;
+  transform: translateX(100%); /* 初始移出屏幕 */
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease; /* 使用更平滑的贝塞尔曲线 */
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .oj-helper-sidebar.visible {
-  right: 0;
+  transform: translateX(0);
+  box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15); /* 展开时加深阴影 */
 }
 
 .oj-helper-sidebar-header {

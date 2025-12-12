@@ -432,7 +432,7 @@ class UIManager {
           this.contentArea = null;
         }
         this.closeTimer = null;
-      }, 300);
+      }, 400); // 匹配 CSS transition 时长
     }
   }
 
@@ -641,6 +641,7 @@ class UIManager {
 
   showError(message, error = null) {
     this.createSidebar();
+    
     this.contentArea.innerHTML = `
       <div class="oj-helper-error">
         <h4>❌ 出错了</h4>
@@ -648,6 +649,7 @@ class UIManager {
         ${error ? `<pre>${String(error).substring(0, 500)}</pre>` : ''}
       </div>
     `;
+    
     this.isStreaming = false;
   }
 
