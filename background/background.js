@@ -47,7 +47,7 @@ let lastCopyTime = 0;
 // 建议仅在内部测试或受信任环境中使用。
 const DEFAULT_CONFIG = {
   model: 'deepseek',
-  apiKey: 'sk-6d4827bdba1d40e79d5bb45978e220a2' // TODO: 请在此处填入您的默认 API Key
+  apiKey: 'sk-your-APIKEY' // TODO: 请在此处填入您的默认 API Key
 };
 
 // 工具函数：从local storage获取值
@@ -93,14 +93,28 @@ function generatePrompt(context) {
     currentCode,
     samples,
     customPrompt,
-    error
+    error,
+    feedbackReason // 新增：用户反馈原因
   } = context;
 
   let basePrompt = customPrompt || `你是一个编程教师。\n`;
   const SEPARATOR = '__NEXT_STEP__';
 
+  // 如果存在反馈原因，添加特定的指令
+  let feedbackInstruction = '';
+  if (feedbackReason) {
+    const reasonMap = {
+      'code_error': '用户反馈之前的代码有错误或无法运行。请仔细检查代码逻辑，修复潜在的 Bug，并给出正确的代码。',
+      'bad_hint': '用户反馈之前的提示不够清晰或没有帮助。请尝试换一个角度进行解释，提供更直观的思路。',
+      'too_long': '用户反馈之前的回答太长了。请务必精简内容，只保留最核心的信息。',
+      'too_short': '用户反馈之前的回答太短了。请补充更多细节，详细解释原理和步骤。'
+    };
+    const instruction = reasonMap[feedbackReason] || '用户对之前的回答不满意，请尝试改进。';
+    feedbackInstruction = `\n\n**特别注意：${instruction}**\n\n`;
+  }
+
   if (feature === 'guide') {
-    basePrompt = `你是一个循循善诱、温柔亲切的编程教师。请按照以下四个步骤逐步引导用户解决问题。
+    basePrompt = `你是一个循循善诱、温柔亲切的编程教师。请按照以下四个步骤逐步引导用户解决问题。${feedbackInstruction}
 **重要要求：**
 1. **语气必须温柔、和善**（例如使用“请试着”、“别着急”等）。
 2. **保持回答精简**。
@@ -135,7 +149,7 @@ ${SEPARATOR}
 
 请严格按照上述格式输出，确保包含标题和分隔符。`;
   } else if (['hint', 'idea'].includes(feature)) {
-    basePrompt = `你是一个温柔、耐心的编程顾问。用户正在编写代码，需要你的鼓励和指引。
+    basePrompt = `你是一个温柔、耐心的编程顾问。用户正在编写代码，需要你的鼓励和指引。${feedbackInstruction}
 **重要要求：**
 1. **语气必须温柔、和善、充满鼓励**（例如“你做得很好”、“试着想一想”）。
 2. **必须基于用户当前代码**进行分析。如果代码为空，则提供起步思路。
@@ -158,7 +172,7 @@ ${SEPARATOR}
 
 请严格按照上述格式输出，确保包含标题和分隔符。`;
   } else if (feature === 'fix') {
-    basePrompt = `你是一个贴心的代码审查伙伴。用户代码运行出错，需要你的帮助。
+    basePrompt = `你是一个贴心的代码审查伙伴。用户代码运行出错，需要你的帮助。${feedbackInstruction}
 **重要要求：**
 1. **语气必须温柔、体贴**，不要让用户感到挫败。
 2. **必须基于用户当前代码和错误信息**进行分析。
@@ -179,10 +193,44 @@ ${SEPARATOR}
 - 鼓励用户继续尝试。
 
 请严格按照上述格式输出，确保包含标题和分隔符。`;
+  } else if (feature === 'recommend' || feature === 'knowledge_tag') {
+    basePrompt = `你是一个博学多才且善解人意的计算机科学导师。用户希望获得个性化的学习推荐。${feedbackInstruction}
+**重要要求：**
+1. **必须优先满足用户的具体需求**（用户输入）。
+2. **注意：** 下方提供的“题目描述”仅供参考。如果用户的需求是通用的知识点询问（如“我想学图论”），或者与当前题目无关，请**完全忽略**题目描述，直接回答用户的问题。只有当用户明确询问“这道题怎么做”或“这道题涉及什么知识”时，才结合题目描述。
+3. **不要直接生成代码**，重点在于概念讲解和学习路径。
+4. **语气热情、专业且富有启发性**。
+5. 三部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
+6. **必须** 输出每部分的标题（使用二级标题格式）。
+
+## 推荐算法/知识点
+- 明确给出一个最适合用户当前需求的算法或数据结构名称（例如：**红黑树**、**Floyd算法**）。
+- 简要说明为什么推荐这个（结合用户需求）。
+
+${SEPARATOR}
+
+## 概念讲解
+- 用通俗易懂的语言解释该算法/知识点的核心思想。
+- 可以使用生活中的类比。
+- 说明它的主要应用场景和时间/空间复杂度。
+
+${SEPARATOR}
+
+## 学习路径建议
+- 给出学习该知识点的步骤（例如：先理解概念 -> 手写模板 -> 练习经典题）。
+- 推荐 1-2 个相关的经典问题（如 LeetCode 或洛谷上的题目类型）。
+- 给予鼓励，激发用户的学习兴趣。
+
+请严格按照上述格式输出，确保包含标题和分隔符。`;
   }
 
-  let fullPrompt = `${basePrompt}
+  let fullPrompt = `${basePrompt}\n\n`;
 
+  if (context.userQuery) {
+    fullPrompt += `=== 用户个性化需求 (请优先关注) ===\n${context.userQuery}\n\n`;
+  }
+
+  fullPrompt += `=== 当前页面上下文 (仅供参考，如无关请忽略) ===
 题目标题: ${title}
 题目描述: ${statement}
 

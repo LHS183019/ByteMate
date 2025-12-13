@@ -529,6 +529,8 @@ class UIManager {
             const nextLabel = this.getNextStepLabel(this.lastResponseFeature, this.currentSectionIndex);
             if (nextLabel) {
                 this.renderContinueButton(nextLabel);
+                // 当显示继续按钮时，也显示反馈按钮
+                this.renderFeedbackUI();
             }
         }
     } else {
@@ -554,8 +556,10 @@ class UIManager {
     // 按钮应该已经显示了，不需要做额外操作。
     // 如果流结束了，且没有未显示的内容（即所有内容都显示完了），也不需要操作。
     
-    // 渲染反馈按钮
-    this.renderFeedbackUI();
+    // 渲染反馈按钮 (如果还没有显示的话)
+    if (!this.waitingForContinue) {
+        this.renderFeedbackUI();
+    }
   }
 
   onContinueClick() {
@@ -565,14 +569,18 @@ class UIManager {
       // 移除按钮
       const btn = this.contentArea.querySelector('.oj-helper-continue-container');
       if(btn) btn.remove();
+
+      // 移除旧的反馈按钮，避免重复或位置错误
+      const existingFeedback = this.contentArea.querySelector('.oj-helper-feedback-root');
+      if (existingFeedback) existingFeedback.remove();
       
       // 创建新的内容块
       const responseContainer = this.contentArea.querySelector('.oj-helper-response');
       const newContentDiv = document.createElement('div');
       newContentDiv.className = `oj-helper-markdown-body section-${this.currentSectionIndex}`;
-      newContentDiv.style.marginTop = '20px';
+      newContentDiv.style.marginTop = '30px';
       newContentDiv.style.borderTop = '1px dashed #ccc';
-      newContentDiv.style.paddingTop = '20px';
+      newContentDiv.style.paddingTop = '10px';
       responseContainer.appendChild(newContentDiv);
       
       this.currentStreamTarget = newContentDiv;
@@ -589,11 +597,14 @@ class UIManager {
            const nextLabel = this.getNextStepLabel(this.lastResponseFeature, this.currentSectionIndex);
            if (nextLabel) {
                this.renderContinueButton(nextLabel);
+               this.renderFeedbackUI();
            }
+      } else if (!this.isStreaming) {
+           // 如果流已经结束，且这是最后一部分，显示反馈按钮
+           this.renderFeedbackUI();
       }
       
-      // 每次点击继续后，重新渲染反馈按钮到最底部
-      this.renderFeedbackUI();
+      // 移除之前无条件调用的 renderFeedbackUI
   }
 
   getNextStepLabel(feature, currentIndex) {
@@ -605,6 +616,9 @@ class UIManager {
           if (currentIndex === 0) return '更详细一些';
       } else if (feature === 'fix') {
           if (currentIndex === 0) return '查看修复方案';
+      } else if (feature === 'recommend' || feature === 'knowledge_tag') {
+          if (currentIndex === 0) return '查看概念讲解';
+          if (currentIndex === 1) return '查看学习路径';
       }
       return null;
   }
@@ -707,11 +721,15 @@ class UIManager {
     optionsContainer.style.display = 'none';
     
     const reasons = [
-        { label: '❌ 代码无法运行', value: 'code_error' },
         { label: '🤔 提示不到位', value: 'bad_hint' },
         { label: '📜 回答过长', value: 'too_long' },
         { label: '📝 回答过短', value: 'too_short' }
     ];
+
+    // 只有当回答包含代码块时，才显示代码错误选项
+    if (this.fullContent && this.fullContent.includes('```')) {
+        reasons.unshift({ label: '❌ 代码错误', value: 'code_error' });
+    }
     
     reasons.forEach(reason => {
         const btn = document.createElement('button');
@@ -749,7 +767,7 @@ class UIManager {
   }
 
   submitFeedback(reason, container) {
-      // 发送反馈
+      // 发送反馈遥测
       chrome.runtime.sendMessage({
           action: 'send_feedback',
           data: {
@@ -758,19 +776,166 @@ class UIManager {
           }
       });
       
-      // 更新 UI 显示感谢
-      container.innerHTML = `
-        <div style="color: #4caf50; font-size: 12px; display: flex; align-items: center; gap: 4px;">
-            <span>✓</span> 感谢反馈
+      // 检查是否可以重新生成 (仅限一次)
+      if (!this.hasRegenerated && this.lastPayload) {
+          this.hasRegenerated = true; // 标记已重新生成
+          
+          // 更新 UI 显示状态
+          container.innerHTML = `
+            <div style="color: #2196f3; font-size: 12px; display: flex; align-items: center; gap: 4px; padding: 4px;">
+                <span class="oj-helper-loading-spinner">🔄</span> 正在根据反馈优化回答...
+            </div>
+          `;
+          
+          // 准备新的 payload
+          const newPayload = { ...this.lastPayload };
+          newPayload.feedbackReason = reason;
+          newPayload.isRegeneration = true;
+          
+          // 延迟一点点让用户看清提示，然后开始请求
+          setTimeout(() => {
+              this.sendStreamRequest(newPayload);
+          }, 800);
+          
+      } else {
+          // 如果已经重新生成过，或者没有 payload，只显示感谢
+          container.innerHTML = `
+            <div style="color: #4caf50; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                <span>✓</span> 感谢反馈
+            </div>
+          `;
+          
+          // 2秒后淡出
+          setTimeout(() => {
+              container.style.transition = 'opacity 0.5s';
+              container.style.opacity = '0';
+              setTimeout(() => container.remove(), 500);
+          }, 2000);
+      }
+  }
+
+  // 发送流式请求的通用方法
+  sendStreamRequest(payload) {
+    if (this.showLoading) {
+        this.showLoading(payload.isRegeneration ? 'AI 正在根据反馈重新思考...' : 'AI 正在思考中...');
+    }
+
+    try {
+        const context_json = JSON.stringify(payload);
+        const port = chrome.runtime.connect({ name: 'ai-stream' });
+        
+        port.postMessage({ 
+            action: "invoke_feature_stream", 
+            feature: payload.feature, 
+            context_json 
+        });
+
+        let currentRequestId = null;
+        if (this.initResponse) {
+            currentRequestId = this.initResponse(payload.feature);
+        }
+
+        port.onMessage.addListener((msg) => {
+            if (msg.type === 'chunk') {
+                if (this.appendStreamContent) {
+                    this.appendStreamContent(msg.data, currentRequestId);
+                }
+            } else if (msg.type === 'done') {
+                if (this.finalizeResponse) {
+                    this.finalizeResponse();
+                }
+                port.disconnect();
+            } else if (msg.type === 'error') {
+                if (this.showError) {
+                    this.showError(msg.error || '未知错误');
+                }
+                port.disconnect();
+            }
+        });
+
+        port.onDisconnect.addListener(() => {
+            if (chrome.runtime.lastError) {
+                console.error('Port disconnected due to error:', chrome.runtime.lastError);
+                if (this.showError) {
+                    this.showError('连接断开: ' + chrome.runtime.lastError.message);
+                }
+            }
+        });
+    } catch (e) {
+        console.error('[Content-Script] Connection failed', e);
+        if (this.showError) {
+            this.showError('无法连接到 AI 服务');
+        }
+    }
+  }
+
+  // 显示个性化推荐输入框
+  showRecommendationInput(callback) {
+    this.createSidebar();
+    this.contentArea.innerHTML = '';
+    
+    const container = document.createElement('div');
+    container.className = 'oj-helper-recommend-input';
+    
+    container.innerHTML = `
+      <div class="oj-helper-recommend-header">
+        <h3>🎯 个性化知识推荐</h3>
+        <p>告诉我你想学什么，或者你现在的学习阶段。</p>
+      </div>
+      <div class="oj-helper-recommend-form">
+        <textarea 
+          id="oj-recommend-query" 
+          placeholder="例如：\n- 我想学习图论基础\n- 我是算法竞赛入门选手，下一步该学什么？\n- 帮我讲解一下红黑树"
+          rows="4"
+        ></textarea>
+        <div class="oj-helper-recommend-tags">
+          <span class="tag" data-value="我是算法入门新手">入门新手</span>
+          <span class="tag" data-value="我想学习动态规划">动态规划</span>
+          <span class="tag" data-value="我想学习图论">图论</span>
+          <span class="tag" data-value="备战 NOIP/CSP">备战考级</span>
         </div>
-      `;
+        <button id="oj-recommend-submit" class="oj-helper-submit-btn">开始推荐</button>
+      </div>
+    `;
+    
+    this.contentArea.appendChild(container);
+    
+    const textarea = container.querySelector('#oj-recommend-query');
+    const submitBtn = container.querySelector('#oj-recommend-submit');
+    const tags = container.querySelectorAll('.tag');
+    
+    // 标签点击填入
+    tags.forEach(tag => {
+      tag.onclick = () => {
+        textarea.value = tag.dataset.value;
+        textarea.focus();
+      };
+    });
+    
+    // 提交处理
+    const handleSubmit = () => {
+      const query = textarea.value.trim();
+      if (!query) {
+        textarea.style.borderColor = 'red';
+        setTimeout(() => textarea.style.borderColor = '', 1000);
+        return;
+      }
       
-      // 2秒后淡出
-      setTimeout(() => {
-          container.style.transition = 'opacity 0.5s';
-          container.style.opacity = '0';
-          setTimeout(() => container.remove(), 500);
-      }, 2000);
+      // 显示加载状态
+      this.showLoading('正在为您定制学习路线...');
+      if (callback) callback(query);
+    };
+    
+    submitBtn.onclick = handleSubmit;
+    
+    // Ctrl+Enter 提交
+    textarea.onkeydown = (e) => {
+      if (e.ctrlKey && e.key === 'Enter') {
+        handleSubmit();
+      }
+    };
+    
+    textarea.focus();
   }
 }
 
@@ -1154,7 +1319,8 @@ class UIManager {
       
       loadUIManager().then(async () => {
         // 如果侧边栏已存在且功能类型一致，且不是强制刷新，直接显示而不重新加载
-        if (!forceReload && uiManager && uiManager.sidebar && uiManager.lastResponseFeature === key) {
+        // 对于 recommend 功能，我们总是希望重新开始（或者至少提供选项），所以排除它
+        if (!forceReload && uiManager && uiManager.sidebar && uiManager.lastResponseFeature === key && key !== 'recommend') {
           uiManager.sidebar.classList.add('visible');
           return;
         }
@@ -1163,140 +1329,104 @@ class UIManager {
             uiManager.onReload = () => onActionClick(key, true);
         }
 
-        let maybe = null;
-        try { maybe = getProblemContext(); } catch (e) { maybe = {}; }
+        // 如果是推荐功能，先显示输入框
+        if (key === 'recommend') {
+            uiManager.showRecommendationInput((userQuery) => {
+                // 用户提交后，继续执行后续逻辑，并带上 userQuery
+                processAction(userQuery);
+            });
+            setExpanded(false);
+            return;
+        }
 
-        function fetchCachedFromBackground(path) {
-          return new Promise((resolve) => {
-            try {
-              chrome.runtime.sendMessage({ action: 'get_cached_problem', path }, (resp) => {
-                if (resp && resp.ok && resp.data) resolve({ source: 'background', data: resp.data, path: resp.path });
-                else resolve(null);
+        processAction();
+
+        function processAction(userQuery = null) {
+            let maybe = null;
+            try { maybe = getProblemContext(); } catch (e) { maybe = {}; }
+
+            function fetchCachedFromBackground(path) {
+              return new Promise((resolve) => {
+                try {
+                  chrome.runtime.sendMessage({ action: 'get_cached_problem', path }, (resp) => {
+                    if (resp && resp.ok && resp.data) resolve({ source: 'background', data: resp.data, path: resp.path });
+                    else resolve(null);
+                  });
+                } catch (e) { resolve(null); }
               });
-            } catch (e) { resolve(null); }
-          });
-        }
+            }
 
-        async function loadPromptContent(featureKey) {
-          try {
-            const fileMap = {
-              'guide': 'guide.txt',
-              'hint': 'idea.txt',
-              'fix': 'code_fix.txt',
-              'recommend': 'knowledge_tag.txt'
+            async function loadPromptContent(featureKey) {
+              try {
+                const fileMap = {
+                  'guide': 'guide.txt',
+                  'hint': 'idea.txt',
+                  'fix': 'code_fix.txt',
+                  'recommend': 'knowledge_tag.txt'
+                };
+                const filename = fileMap[featureKey];
+                if (!filename) return null;
+                
+                const url = chrome.runtime.getURL(`prompts/${filename}`);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to load prompt: ${filename}`);
+                return await response.text();
+              } catch (e) {
+                console.error('[Content-Script] Failed to load prompt:', e);
+                return null;
+              }
+            }
+
+            const handleContext = async (context) => {
+              if (!context) context = {};
+              let usedSource = 'direct';
+              let usedContext = context;
+              
+              if ((!context.statement || context.statement === '') && pageType !== 'problem') {
+                const fromBg = await fetchCachedFromBackground(normalizeProblemPath(location.href));
+                if (fromBg && fromBg.data) {
+                  usedSource = 'background';
+                  usedContext = fromBg.data;
+                }
+              }
+
+              const currentCode = getCurrentCodeFromPage();
+              const errorInfo = (pageType === 'result') ? extractErrorInfo() : '';
+              const customPrompt = await loadPromptContent(key);
+
+              const payload = {
+                feature: key,
+                pageType,
+                title: String((usedContext && usedContext.title) ? usedContext.title : ''),
+                statement: String((usedContext && usedContext.statement) ? usedContext.statement : ''),
+                samples: (usedContext && usedContext.samples) ? usedContext.samples : [],
+                currentCode: String(currentCode || (usedContext && usedContext.currentCode) || ''),
+                tags: (usedContext && usedContext.tags) ? usedContext.tags : [],
+                problemId: String((usedContext && usedContext.problemId) ? usedContext.problemId : ''),
+                url: String((usedContext && usedContext.url) ? usedContext.url : location.href),
+                error: String(errorInfo || ''),
+                customPrompt: customPrompt,
+                _debug_source: usedSource,
+                stream: true,
+                userQuery: userQuery // 添加用户查询
+              };
+
+              // 保存 payload 用于重新生成
+              if (uiManager) {
+                  uiManager.lastPayload = payload;
+                  uiManager.hasRegenerated = false; // 重置重新生成标记
+                  uiManager.sendStreamRequest(payload);
+              }
             };
-            const filename = fileMap[featureKey];
-            if (!filename) return null;
-            
-            const url = chrome.runtime.getURL(`prompts/${filename}`);
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to load prompt: ${filename}`);
-            return await response.text();
-          } catch (e) {
-            console.error('[Content-Script] Failed to load prompt:', e);
-            return null;
-          }
-        }
 
-        const handleContext = async (context) => {
-          if (!context) context = {};
-          let usedSource = 'direct';
-          let usedContext = context;
-          
-          if ((!context.statement || context.statement === '') && pageType !== 'problem') {
-            const fromBg = await fetchCachedFromBackground(normalizeProblemPath(location.href));
-            if (fromBg && fromBg.data) {
-              usedSource = 'background';
-              usedContext = fromBg.data;
+            if (maybe && typeof maybe.then === 'function') {
+              maybe.then(handleContext).catch(e => { 
+                console.warn('[Content-Script] 解析题面失败', e);
+                showError('无法解析题目信息');
+              });
+            } else {
+              handleContext(maybe);
             }
-          }
-
-          const currentCode = getCurrentCodeFromPage();
-          const errorInfo = (pageType === 'result') ? extractErrorInfo() : '';
-          const customPrompt = await loadPromptContent(key);
-
-          const payload = {
-            feature: key,
-            pageType,
-            title: String((usedContext && usedContext.title) ? usedContext.title : ''),
-            statement: String((usedContext && usedContext.statement) ? usedContext.statement : ''),
-            samples: (usedContext && usedContext.samples) ? usedContext.samples : [],
-            currentCode: String(currentCode || (usedContext && usedContext.currentCode) || ''),
-            tags: (usedContext && usedContext.tags) ? usedContext.tags : [],
-            problemId: String((usedContext && usedContext.problemId) ? usedContext.problemId : ''),
-            url: String((usedContext && usedContext.url) ? usedContext.url : location.href),
-            error: String(errorInfo || ''),
-            customPrompt: customPrompt,
-            _debug_source: usedSource,
-            stream: true
-          };
-
-          // 显示加载状态
-          if (uiManager && uiManager.showLoading) {
-             uiManager.showLoading('AI 正在思考中...');
-          }
-
-          try {
-            const context_json = JSON.stringify(payload);
-            
-            // 使用长连接进行流式传输
-            const port = chrome.runtime.connect({ name: 'ai-stream' });
-            
-            // 发送初始请求
-            port.postMessage({ 
-                action: "invoke_feature_stream", 
-                feature: key, 
-                context_json 
-            });
-
-            // 初始化响应UI
-            let currentRequestId = null;
-            if (uiManager && uiManager.initResponse) {
-                currentRequestId = uiManager.initResponse(key);
-            }
-
-            port.onMessage.addListener((msg) => {
-                if (msg.type === 'chunk') {
-                    if (uiManager && uiManager.appendStreamContent) {
-                        uiManager.appendStreamContent(msg.data, currentRequestId);
-                    }
-                } else if (msg.type === 'done') {
-                    if (uiManager && uiManager.finalizeResponse) {
-                        uiManager.finalizeResponse();
-                    }
-                    port.disconnect();
-                } else if (msg.type === 'error') {
-                    if (uiManager && uiManager.showError) {
-                        uiManager.showError(msg.error || '未知错误');
-                    }
-                    port.disconnect();
-                }
-            });
-
-            port.onDisconnect.addListener(() => {
-                if (chrome.runtime.lastError) {
-                    console.error('Port disconnected due to error:', chrome.runtime.lastError);
-                    if (uiManager && uiManager.showError) {
-                        uiManager.showError('连接断开: ' + chrome.runtime.lastError.message);
-                    }
-                }
-            });
-
-          } catch (e) {
-            console.error('[Content-Script] Connection failed', e);
-            if (uiManager && uiManager.showError) {
-                uiManager.showError('无法连接到 AI 服务');
-            }
-          }
-        };
-
-        if (maybe && typeof maybe.then === 'function') {
-          maybe.then(handleContext).catch(e => { 
-            console.warn('[Content-Script] 解析题面失败', e);
-            showError('无法解析题目信息');
-          });
-        } else {
-          handleContext(maybe);
         }
 
         setExpanded(false);

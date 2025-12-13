@@ -47,6 +47,9 @@
 
 ---
 
+效果：
+![alt text](readme_asset/teleeffect.png)
+
 ## 3. 配置指南
 
 目前在我的在 Google Analytics账号上绑定了网页插件，可以实时遥测网站的数据。
