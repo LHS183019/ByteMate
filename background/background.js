@@ -39,12 +39,15 @@ let appConfig = {
   apiKey: null
 };
 
+// 记录最后一次复制代码的时间
+let lastCopyTime = 0;
+
 // 默认配置（内置 Key）
 // ⚠️ 注意：在客户端代码中硬编码 API Key 存在安全风险。
 // 建议仅在内部测试或受信任环境中使用。
 const DEFAULT_CONFIG = {
   model: 'deepseek',
-  apiKey: 'sk-YOURAPIKEY' // TODO: 请在此处填入您的默认 API Key
+  apiKey: 'sk-6d4827bdba1d40e79d5bb45978e220a2' // TODO: 请在此处填入您的默认 API Key
 };
 
 // 工具函数：从local storage获取值
@@ -253,6 +256,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const {data} = request;
     const {result, praticeId, submitTime} = data;
     console.log(`[Background] result: ${result}, praticeId: ${praticeId}, submitTime: ${submitTime}`);
+    
+    // 发送提交结果遥测
+    // 检查是否是“复制后提交”（例如 10 分钟内）
+    const isCopied = (Date.now() - lastCopyTime) < 10 * 60 * 1000;
+    
+    sendTelemetryEvent('code_submission', {
+      result: result,
+      problem_id: praticeId,
+      is_copied: isCopied ? 'yes' : 'no',
+      time_since_copy: isCopied ? Math.round((Date.now() - lastCopyTime) / 1000) : -1
+    });
+
     chrome.storage.local.get((storageData) => {
       let problemStats = storageData.problemStats || {};
       if(praticeId in problemStats) {
@@ -397,6 +412,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'send_feedback') {
+    const { feature, reason } = request.data || {};
+    console.log('[Background] 收到用户反馈:', feature, reason);
+    
+    sendTelemetryEvent('user_feedback', {
+      feature: feature || 'unknown',
+      reason: reason,
+      timestamp: Date.now()
+    });
+    
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (request.action === 'copy_code') {
+    lastCopyTime = Date.now();
+    const { length } = request.data || {};
+    console.log('[Background] User copied code, length:', length);
+    
+    sendTelemetryEvent('code_copy', {
+      length: length || 0
+    });
+    return true;
+  }
+
   sendResponse({ ok: false, error: 'Unknown action' });
 });
 
@@ -421,6 +461,15 @@ async function invokeAIFeature(feature, context, sendResponse) {
 
     const llmConfig = getLLMConfig();
     const prompt = generatePrompt({ ...context, feature });
+    
+    // 记录开始时间用于计算延迟
+    context.startTime = Date.now();
+    
+    // 发送开始遥测
+    sendTelemetryEvent('ai_feature_start', {
+      feature: feature,
+      model: appConfig.model
+    });
     
     console.log('[AI-Feature] Sending request to LLM Provider:', llmConfig.baseUrl);
 
@@ -451,6 +500,13 @@ async function invokeAIFeature(feature, context, sendResponse) {
 
     console.log('[AI-Feature] Success');
 
+    // 发送成功遥测
+    sendTelemetryEvent('ai_feature_success', {
+      feature: feature,
+      model: appConfig.model,
+      latency: Date.now() - (context.startTime || Date.now())
+    });
+
     // 返回结果给 content-script
     sendResponse({
       success: true,
@@ -460,6 +516,15 @@ async function invokeAIFeature(feature, context, sendResponse) {
     });
   } catch (error) {
     console.error('[AI-Feature] Error:', error.message);
+    
+    // 发送失败遥测
+    sendTelemetryEvent('ai_feature_error', {
+      feature: feature,
+      model: appConfig.model,
+      error_type: error.message.includes('API Key') ? 'auth_error' : 'api_error',
+      error_message: error.message.substring(0, 100)
+    });
+
     sendResponse({
       success: false,
       error: error.message,
@@ -700,3 +765,56 @@ setInterval(() => {
     }
   }
 }, 60 * 60 * 1000); // 每小时检查一次
+
+// ============ 遥测 (Telemetry) 配置 ============
+// 使用 Google Analytics 4 Measurement Protocol
+const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
+const GA_MEASUREMENT_ID = 'G-KVX34E0R5J'; // TODO: 替换为您的 GA4 Measurement ID
+const GA_API_SECRET = 'Uf8UWKvESna2dkZjXjVk9A';       // TODO: 替换为您的 GA4 API Secret
+const DEFAULT_CLIENT_ID = 'anonymous_user';
+
+// 获取或生成客户端 ID
+async function getClientId() {
+  try {
+    const result = await chrome.storage.local.get('client_id');
+    if (result.client_id) {
+      return result.client_id;
+    } else {
+      const newId = crypto.randomUUID();
+      await chrome.storage.local.set({ client_id: newId });
+      return newId;
+    }
+  } catch (e) {
+    return DEFAULT_CLIENT_ID;
+  }
+}
+
+// 发送遥测事件
+async function sendTelemetryEvent(eventName, params = {}) {
+  try {
+    // 如果没有配置 ID，则跳过（开发模式）
+    if (GA_MEASUREMENT_ID === 'G-XXXXXXXXXX') return;
+
+    const clientId = await getClientId();
+    
+    const payload = {
+      client_id: clientId,
+      events: [{
+        name: eventName,
+        params: {
+          ...params,
+          session_id: Date.now().toString(), // 简单会话 ID
+          engagement_time_msec: 100
+        }
+      }]
+    };
+
+    await fetch(`${GA_ENDPOINT}?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    // 遥测失败不应影响主功能，仅打印日志
+    console.warn('[Telemetry] Failed to send event:', error);
+  }
+}

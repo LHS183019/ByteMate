@@ -20,7 +20,8 @@
     "https://dashscope.aliyuncs.com/*",
     "https://open.bigmodel.cn/*",
     "https://api.openai.com/*",
-    "https://api.groq.com/*"
+    "https://api.groq.com/*",
+    "https://www.google-analytics.com/*"
   ],
 
   "background": {

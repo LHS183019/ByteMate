@@ -321,6 +321,16 @@ class UIManager {
         navigator.clipboard.writeText(code).then(() => {
           btn.textContent = '已复制';
           btn.classList.add('copied');
+          
+          // 发送复制遥测
+          chrome.runtime.sendMessage({
+            action: 'copy_code',
+            data: {
+              timestamp: Date.now(),
+              length: code.length
+            }
+          });
+
           setTimeout(() => {
             btn.textContent = '复制';
             btn.classList.remove('copied');
@@ -543,6 +553,9 @@ class UIManager {
     // 如果流结束了，但我们还在等待用户点击继续（即还有未显示的内容在缓冲区），
     // 按钮应该已经显示了，不需要做额外操作。
     // 如果流结束了，且没有未显示的内容（即所有内容都显示完了），也不需要操作。
+    
+    // 渲染反馈按钮
+    this.renderFeedbackUI();
   }
 
   onContinueClick() {
@@ -578,6 +591,9 @@ class UIManager {
                this.renderContinueButton(nextLabel);
            }
       }
+      
+      // 每次点击继续后，重新渲染反馈按钮到最底部
+      this.renderFeedbackUI();
   }
 
   getNextStepLabel(feature, currentIndex) {
@@ -669,6 +685,92 @@ class UIManager {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  renderFeedbackUI() {
+    // 如果已经存在，先移除旧的（为了重新定位到底部）
+    const existing = this.contentArea.querySelector('.oj-helper-feedback-root');
+    if (existing) existing.remove();
+
+    const container = document.createElement('div');
+    container.className = 'oj-helper-feedback-root';
+    
+    // 初始按钮
+    const triggerBtn = document.createElement('button');
+    triggerBtn.className = 'oj-helper-feedback-btn';
+    triggerBtn.innerHTML = '<span>👎</span> 我不满意';
+    triggerBtn.title = '反馈回答质量';
+    
+    // 选项容器
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'oj-helper-feedback-options';
+    optionsContainer.style.display = 'none';
+    
+    const reasons = [
+        { label: '❌ 代码无法运行', value: 'code_error' },
+        { label: '🤔 提示不到位', value: 'bad_hint' },
+        { label: '📜 回答过长', value: 'too_long' },
+        { label: '📝 回答过短', value: 'too_short' }
+    ];
+    
+    reasons.forEach(reason => {
+        const btn = document.createElement('button');
+        btn.className = 'oj-helper-feedback-option';
+        btn.textContent = reason.label;
+        btn.onclick = () => {
+            this.submitFeedback(reason.value, container);
+        };
+        optionsContainer.appendChild(btn);
+    });
+    
+    // 交互逻辑
+    triggerBtn.onclick = () => {
+        if (optionsContainer.style.display === 'none') {
+            optionsContainer.style.display = 'flex';
+            triggerBtn.style.display = 'none'; // 隐藏触发按钮，展示选项
+        }
+    };
+    
+    container.appendChild(triggerBtn);
+    container.appendChild(optionsContainer);
+    
+    // 插入位置：如果有“继续”按钮，插在它后面；否则插在最后
+    const continueContainer = this.contentArea.querySelector('.oj-helper-continue-container');
+    if (continueContainer) {
+        // 稍微调整样式以适应并排或垂直布局
+        container.style.marginTop = '8px';
+        container.style.borderTop = 'none'; // 紧跟在继续按钮后，不需要分割线
+        this.contentArea.appendChild(container);
+    } else {
+        this.contentArea.appendChild(container);
+    }
+    
+    this.contentArea.scrollTop = this.contentArea.scrollHeight;
+  }
+
+  submitFeedback(reason, container) {
+      // 发送反馈
+      chrome.runtime.sendMessage({
+          action: 'send_feedback',
+          data: {
+              feature: this.lastResponseFeature,
+              reason: reason
+          }
+      });
+      
+      // 更新 UI 显示感谢
+      container.innerHTML = `
+        <div style="color: #4caf50; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+            <span>✓</span> 感谢反馈
+        </div>
+      `;
+      
+      // 2秒后淡出
+      setTimeout(() => {
+          container.style.transition = 'opacity 0.5s';
+          container.style.opacity = '0';
+          setTimeout(() => container.remove(), 500);
+      }, 2000);
   }
 }
 
