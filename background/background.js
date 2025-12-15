@@ -145,7 +145,14 @@ async function generatePrompt(context) {
   // 添加反馈指令
   if (feedbackInstruction && basePrompt) {
     // 在模板开头的描述部分添加反馈指令
-    basePrompt = basePrompt.replace(/^(.+?)(\n\*\*重要要求\*\*:)/s, `$1${feedbackInstruction}$2`);
+    // 匹配两种格式：有换行符和没有换行符的情况
+    const regex = /^(\s*[\s\S]+?)(\n?\*\*重要要求\*\*[:：])/s;
+    if (regex.test(basePrompt)) {
+      basePrompt = basePrompt.replace(regex, `$1${feedbackInstruction}$2`);
+    } else {
+      // 如果没有找到**重要要求**标记，直接在模板开头添加反馈指令
+      basePrompt = feedbackInstruction + basePrompt;
+    }
   }
 
   let fullPrompt = `${basePrompt}\n\n`;
@@ -444,7 +451,7 @@ async function invokeAIFeature(feature, context, sendResponse) {
     });
     
     console.log('[AI-Feature] Sending request to LLM Provider:', llmConfig.baseUrl);
-
+    console.log('[AI-Feature] Final Prompt:', prompt);
     const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -548,6 +555,9 @@ async function invokeAIFeatureStream(context, port) {
 
     const llmConfig = getLLMConfig();
     const prompt = await generatePrompt(context);
+
+    console.log('[AI-Stream] Sending request to LLM Provider:', llmConfig.baseUrl);
+    console.log('[AI-Stream] Final Prompt:', prompt);
 
     const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
       method: 'POST',
