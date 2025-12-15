@@ -1361,8 +1361,10 @@ class UIManager {
                 const fileMap = {
                   'guide': 'guide.txt',
                   'hint': 'idea.txt',
+                  'idea': 'idea.txt',
                   'fix': 'code_fix.txt',
-                  'recommend': 'knowledge_tag.txt'
+                  'recommend': 'knowledge_tag.txt',
+                  'knowledge_tag': 'knowledge_tag.txt'
                 };
                 const filename = fileMap[featureKey];
                 if (!filename) return null;

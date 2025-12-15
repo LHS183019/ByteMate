@@ -48,6 +48,17 @@ ByteMate 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 
 2.  脚本会在根目录生成 `ByteMate_Extension.zip`。
 3.  将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
 
+你可能会遇到的问题：
+
+1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
+
+2. 运行时遇到 `syntax error: unexpected end of file`： 可能是在 Windows/ MacOS 中编辑的脚本可能包含不兼容的换行符（CRLF），导致 Linux 无法正确解析，使用vim修改格式。
+```bash
+vim package_extension.sh
+:set ff=unix
+:wq
+```
+
 ---
 
 ## ⚙️ 配置说明

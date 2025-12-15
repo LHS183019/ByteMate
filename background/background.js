@@ -84,8 +84,32 @@ async function initializeConfig() {
   }
 }
 
+// 加载 Prompt 模板
+async function loadPromptTemplate(featureKey) {
+  try {
+    const fileMap = {
+      'guide': 'guide.txt',
+      'hint': 'idea.txt',
+      'idea': 'idea.txt',
+      'fix': 'code_fix.txt',
+      'recommend': 'knowledge_tag.txt',
+      'knowledge_tag': 'knowledge_tag.txt'
+    };
+    const filename = fileMap[featureKey];
+    if (!filename) return null;
+    
+    const url = chrome.runtime.getURL(`prompts/${filename}`);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to load prompt: ${filename}`);
+    return await response.text();
+  } catch (e) {
+    console.error('[Background] Failed to load prompt:', e);
+    return null;
+  }
+}
+
 // 生成 Prompt
-function generatePrompt(context) {
+async function generatePrompt(context) {
   const {
     feature,
     title,
@@ -97,7 +121,6 @@ function generatePrompt(context) {
     feedbackReason // 新增：用户反馈原因
   } = context;
 
-  let basePrompt = customPrompt || `你是一个编程教师。\n`;
   const SEPARATOR = '__NEXT_STEP__';
 
   // 如果存在反馈原因，添加特定的指令
@@ -113,115 +136,16 @@ function generatePrompt(context) {
     feedbackInstruction = `\n\n**特别注意：${instruction}**\n\n`;
   }
 
-  if (feature === 'guide') {
-    basePrompt = `你是一个循循善诱、温柔亲切的编程教师。请按照以下四个步骤逐步引导用户解决问题。${feedbackInstruction}
-**重要要求：**
-1. **语气必须温柔、和善**（例如使用“请试着”、“别着急”等）。
-2. **保持回答精简**。
-3. 每一步之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
-4. **必须** 输出每一步的标题（如 ## 启发引导），标题使用二级标题格式。
-5. 如果用户已经写了部分代码，请结合代码进度进行引导。
-6. **涉及代码时，默认使用 C++**。
+  // 加载基础 Prompt 模板
+  let basePrompt = customPrompt;
+  if (!basePrompt) {
+    basePrompt = await loadPromptTemplate(feature) || `你是一个编程教师。\n`;
+  }
 
-## 启发引导
-- 仅提供 **1-2句** 简短的启发式引导。
-- **绝对不要** 提供代码或具体的算法名称。
-- 用温柔的反问句引导思考。
-
-${SEPARATOR}
-
-## 核心概念
-- 仅列出核心数据结构和算法名称。
-- 对关键词（如**动态规划**）进行加粗。
-- **不要** 输出代码。
-
-${SEPARATOR}
-
-## 算法流程
-- 使用清晰的步骤列表（1. 2. 3.）。
-- 仅描述逻辑，**不要** 输出代码。
-
-${SEPARATOR}
-
-## 参考代码
-- 提供完整的 C++ 代码。
-- 包含关键注释。
-
-请严格按照上述格式输出，确保包含标题和分隔符。`;
-  } else if (['hint', 'idea'].includes(feature)) {
-    basePrompt = `你是一个温柔、耐心的编程顾问。用户正在编写代码，需要你的鼓励和指引。${feedbackInstruction}
-**重要要求：**
-1. **语气必须温柔、和善、充满鼓励**（例如“你做得很好”、“试着想一想”）。
-2. **必须基于用户当前代码**进行分析。如果代码为空，则提供起步思路。
-3. **保持回答精简但有温度**。
-4. 两部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
-5. **必须** 输出每部分的标题（使用二级标题格式）。
-6. **涉及代码时，默认使用 C++**。
-
-## 下一步建议
-- 用温柔的语气分析当前代码逻辑到了哪一步。
-- **明确指出**下一步应该实现什么功能，给出一个小目标。
-- 限制在 3-5 句话以内。
-
-${SEPARATOR}
-
-## 详细解析
-- 详细解释为什么要这样做，原理是什么。
-- 提供下一步逻辑的伪代码或关键代码片段（不要直接给出完整答案，除非用户代码已接近完成）。
-- 再次给予鼓励。
-
-请严格按照上述格式输出，确保包含标题和分隔符。`;
-  } else if (feature === 'fix') {
-    basePrompt = `你是一个贴心的代码审查伙伴。用户代码运行出错，需要你的帮助。${feedbackInstruction}
-**重要要求：**
-1. **语气必须温柔、体贴**，不要让用户感到挫败。
-2. **必须基于用户当前代码和错误信息**进行分析。
-3. 两部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
-4. **必须** 输出每部分的标题（使用二级标题格式）。
-5. **涉及代码时，默认使用 C++**。
-
-## 错误诊断
-- 用温和的方式指出代码中的主要问题。
-- 对错误原因进行**加粗**。
-- 限制在 3-5 句话以内。
-
-${SEPARATOR}
-
-## 修复方案
-- 详细解释错误原因，帮助用户理解。
-- 提供修复后的关键代码段或完整代码。
-- 鼓励用户继续尝试。
-
-请严格按照上述格式输出，确保包含标题和分隔符。`;
-  } else if (feature === 'recommend' || feature === 'knowledge_tag') {
-    basePrompt = `你是一个博学多才且善解人意的计算机科学导师。用户希望获得个性化的学习推荐。${feedbackInstruction}
-**重要要求：**
-1. **必须优先满足用户的具体需求**（用户输入）。
-2. **注意：** 下方提供的“题目描述”仅供参考。如果用户的需求是通用的知识点询问（如“我想学图论”），或者与当前题目无关，请**完全忽略**题目描述，直接回答用户的问题。只有当用户明确询问“这道题怎么做”或“这道题涉及什么知识”时，才结合题目描述。
-3. **不要直接生成代码**，重点在于概念讲解和学习路径。
-4. **语气热情、专业且富有启发性**。
-5. 三部分之间 **必须** 使用 "${SEPARATOR}" (包含换行) 分隔。
-6. **必须** 输出每部分的标题（使用二级标题格式）。
-
-## 推荐算法/知识点
-- 明确给出一个最适合用户当前需求的算法或数据结构名称（例如：**红黑树**、**Floyd算法**）。
-- 简要说明为什么推荐这个（结合用户需求）。
-
-${SEPARATOR}
-
-## 概念讲解
-- 用通俗易懂的语言解释该算法/知识点的核心思想。
-- 可以使用生活中的类比。
-- 说明它的主要应用场景和时间/空间复杂度。
-
-${SEPARATOR}
-
-## 学习路径建议
-- 给出学习该知识点的步骤（例如：先理解概念 -> 手写模板 -> 练习经典题）。
-- 推荐 1-2 个相关的经典问题（如 LeetCode 或洛谷上的题目类型）。
-- 给予鼓励，激发用户的学习兴趣。
-
-请严格按照上述格式输出，确保包含标题和分隔符。`;
+  // 添加反馈指令
+  if (feedbackInstruction && basePrompt) {
+    // 在模板开头的描述部分添加反馈指令
+    basePrompt = basePrompt.replace(/^(.+?)(\n\*\*重要要求\*\*:)/s, `$1${feedbackInstruction}$2`);
   }
 
   let fullPrompt = `${basePrompt}\n\n`;
@@ -508,7 +432,7 @@ async function invokeAIFeature(feature, context, sendResponse) {
     }
 
     const llmConfig = getLLMConfig();
-    const prompt = generatePrompt({ ...context, feature });
+    const prompt = await generatePrompt({ ...context, feature });
     
     // 记录开始时间用于计算延迟
     context.startTime = Date.now();
@@ -623,7 +547,7 @@ async function invokeAIFeatureStream(context, port) {
     if (!appConfig.model) throw new Error('未选择模型');
 
     const llmConfig = getLLMConfig();
-    const prompt = generatePrompt(context);
+    const prompt = await generatePrompt(context);
 
     const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
       method: 'POST',
