@@ -302,6 +302,29 @@
 	margin-top: 10px;
 }
 
+/* 仅显示复制按钮的容器样式 */
+.oj-helper-copy-only-container {
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+}
+
+.oj-helper-prompt-container h5 {
+  display: none; /* 隐藏提示词标题 */
+}
+
+.oj-helper-code-block {
+  position: relative;
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 10px 0;
+}
+
 /* 文本内容 */
 .oj-helper-text {
 	font-family: monospace;
@@ -411,6 +434,7 @@
   padding-top: 35px; /* 为复制按钮留出空间 */
 }
 
+/* 默认复制按钮样式（用于代码块） */
 .oj-helper-copy-btn {
   position: absolute;
   top: 5px;
@@ -427,8 +451,55 @@
   transition: background 0.2s;
 }
 
-.oj-helper-copy-btn:hover {
-  background: #ddd;
+/* 错误消息中的复制按钮样式 - 与continue按钮保持一致 */
+.oj-helper-copy-only-container .oj-helper-copy-btn {
+  position: static;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 12px 24px;
+  border: none;
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-block;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px rgba(118, 75, 162, 0.3);
+  transition: all 0.2s;
+  margin: 0 auto;
+  z-index: auto;
+  
+  /* Pixel corners */
+  clip-path: polygon(
+      0% 4px, 4px 4px, 4px 0%,
+      calc(100% - 4px) 0%, calc(100% - 4px) 4px, 100% 4px,
+      100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+      4px 100%, 4px calc(100% - 4px), 0% calc(100% - 4px)
+  );
+}
+
+.oj-helper-copy-only-container .oj-helper-copy-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px rgba(118, 75, 162, 0.3);
+  filter: brightness(1.1);
+}
+
+.oj-helper-copy-only-container .oj-helper-copy-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px rgba(0,0,0,0.2);
+}
+
+/* 复制成功/失败状态样式 - 覆盖默认样式以保持渐变按钮风格 */
+.oj-helper-copy-only-container .oj-helper-copy-btn.copied {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.oj-helper-copy-only-container .oj-helper-copy-btn.error {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: white;
+  border: none;
 }
 
 .oj-helper-copy-btn.copied {

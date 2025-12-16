@@ -47,7 +47,7 @@ let lastCopyTime = 0;
 // 建议仅在内部测试或受信任环境中使用。
 const DEFAULT_CONFIG = {
   model: 'deepseek',
-  apiKey: 'sk-your-APIKEY' // TODO: 请在此处填入您的默认 API Key
+  apiKey: '' // 默认不提供API Key，让用户自己配置
 };
 
 // 工具函数：从local storage获取值
@@ -76,6 +76,9 @@ async function initializeConfig() {
     
     console.log('[Background] 配置初始化完成:', {
       model: appConfig.model,
+      apiKey: appConfig.apiKey ? '******' + appConfig.apiKey.slice(-4) : null,
+      storedModel,
+      storedApiKey: storedApiKey ? '******' + storedApiKey.slice(-4) : null,
       usingDefaultKey: !storedApiKey,
       hasApiKey: !!appConfig.apiKey
     });
@@ -110,6 +113,8 @@ async function loadPromptTemplate(featureKey) {
 
 // 生成 Prompt
 async function generatePrompt(context) {
+  console.log('[Background] generatePrompt called with context:', context);
+  
   const {
     feature,
     title,
@@ -179,6 +184,7 @@ ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: 
   }
 
   fullPrompt += `\n请直接回复分析结果。`;
+  console.log('[Background] Generated full prompt:', fullPrompt);
   return fullPrompt;
 }
 
@@ -430,12 +436,14 @@ async function invokeAIFeature(feature, context, sendResponse) {
     console.log('[AI-Feature] Starting:', feature);
 
     // 检查配置
-    if (!appConfig.apiKey) {
-      throw new Error('未配置 API Key');
-    }
-    
-    if (!appConfig.model) {
-      throw new Error('未选择模型');
+    if (!appConfig.apiKey || !appConfig.model) {
+      // 即使API未配置，也要生成prompt以便用户复制
+      const prompt = await generatePrompt({ ...context, feature });
+      if (!appConfig.apiKey) {
+        throw new Error(`未配置 API Key|||${prompt}`);
+      } else {
+        throw new Error(`未选择模型|||${prompt}`);
+      }
     }
 
     const llmConfig = getLLMConfig();
@@ -550,8 +558,15 @@ async function invokeAIFeatureStream(context, port) {
     // 确保使用最新的配置
     await initializeConfig();
 
-    if (!appConfig.apiKey) throw new Error('未配置 API Key');
-    if (!appConfig.model) throw new Error('未选择模型');
+    if (!appConfig.apiKey || !appConfig.model) {
+      // 即使API未配置，也要生成prompt以便用户复制
+      const prompt = await generatePrompt(context);
+      if (!appConfig.apiKey) {
+        throw new Error(`未配置 API Key|||${prompt}`);
+      } else {
+        throw new Error(`未选择模型|||${prompt}`);
+      }
+    }
 
     const llmConfig = getLLMConfig();
     const prompt = await generatePrompt(context);

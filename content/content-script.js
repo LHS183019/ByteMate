@@ -862,13 +862,83 @@ class UIManager {
   showError(message, error = null) {
     this.createSidebar();
     
-    this.contentArea.innerHTML = `
+    // 检查错误信息是否包含prompt（格式：错误信息|||prompt）
+    const errorParts = message.split('|||');
+    const actualMessage = errorParts[0];
+    const prompt = errorParts[1] || null;
+    
+    let errorHtml = `
       <div class="oj-helper-error">
         <h4>❌ 出错了</h4>
-        <p>${message}</p>
-        ${error ? `<pre>${String(error).substring(0, 500)}</pre>` : ''}
-      </div>
+        <p>${actualMessage}</p>
     `;
+    
+    // 如果有prompt，只添加复制按钮（不显示prompt内容）
+    if (prompt) {
+      errorHtml += `
+        <div class="oj-helper-prompt-container">
+          <div class="oj-helper-copy-only-container">
+            <button class="oj-helper-copy-btn" data-prompt="${this.escapeHtml(prompt)}">复制提示词</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    errorHtml += `</div>`;
+    
+    this.contentArea.innerHTML = errorHtml;
+    
+    // 如果有复制按钮，添加点击事件
+    if (prompt) {
+      const copyBtn = this.contentArea.querySelector('.oj-helper-copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          try {
+            // 尝试使用 Clipboard API
+            await navigator.clipboard.writeText(prompt);
+            copyBtn.textContent = '已复制';
+            copyBtn.classList.add('copied');
+            setTimeout(() => {
+              copyBtn.textContent = '复制提示词';
+              copyBtn.classList.remove('copied');
+            }, 2000);
+          } catch (error) {
+            console.error('[UIManager] Clipboard API failed, trying fallback:', error);
+            // 备用方案：使用传统的 copy 方法
+            try {
+              const textArea = document.createElement('textarea');
+              textArea.value = prompt;
+              textArea.style.position = 'fixed';
+              textArea.style.left = '-999999px';
+              textArea.style.top = '-999999px';
+              document.body.appendChild(textArea);
+              textArea.focus();
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              
+              copyBtn.textContent = '已复制';
+              copyBtn.classList.add('copied');
+              setTimeout(() => {
+                copyBtn.textContent = '复制提示词';
+                copyBtn.classList.remove('copied');
+              }, 2000);
+            } catch (fallbackError) {
+              console.error('[UIManager] Copy fallback failed:', fallbackError);
+              copyBtn.textContent = '复制失败';
+              copyBtn.classList.add('error');
+              setTimeout(() => {
+                copyBtn.textContent = '复制提示词';
+                copyBtn.classList.remove('error');
+              }, 2000);
+            }
+          }
+        });
+      }
+    }
     
     this.isStreaming = false;
   }
