@@ -195,8 +195,94 @@ class UIManager {
     this.SEPARATOR_REGEX = /\s*__NEXT_STEP__\s*/;
     
     this.currentRequestId = 0;
+    this.activePort = null; // 当前活动的端口连接
     this.closeTimer = null;
     this.onReload = null;
+    this.currentFeature = null; // 当前正在使用的功能类型
+    
+    // 历史记录存储相关
+    this.historyStorageKey = 'oj_helper_history';
+    this.loadHistoryFromStorage();
+    
+    // 页面类型映射
+    this.pageTypeFeatureMap = {
+      'problem': ['guide'],
+      'submit': ['hint', 'idea'],
+      'result': ['fix']
+    };
+  }
+  
+  // 获取当前页面类型
+  getCurrentPageType() {
+    const href = location.href;
+    if (/\/solution\//.test(href) || /\/submission\//.test(href)) {
+      return 'result';
+    } else if (/\/submit\/?$/.test(href) || /\/submit\//.test(href)) {
+      return 'submit';
+    } else if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) {
+      return 'problem';
+    } else {
+      return 'other';
+    }
+  }
+  
+  // 从本地存储加载历史记录
+  loadHistoryFromStorage() {
+    try {
+      const stored = localStorage.getItem(this.historyStorageKey);
+      if (stored) {
+        this.history = JSON.parse(stored);
+      } else {
+        this.history = {};
+      }
+    } catch (error) {
+      console.error('[UIManager] 加载历史记录失败:', error);
+      this.history = {};
+    }
+  }
+  
+  // 保存历史记录到本地存储
+  saveHistoryToStorage() {
+    try {
+      localStorage.setItem(this.historyStorageKey, JSON.stringify(this.history));
+    } catch (error) {
+      console.error('[UIManager] 保存历史记录失败:', error);
+    }
+  }
+  
+  // 保存特定页面类型和功能的历史记录
+  saveHistory(pageType, feature, data) {
+    if (!this.history[pageType]) {
+      this.history[pageType] = {};
+    }
+    this.history[pageType][feature] = {
+      data: data,
+      timestamp: Date.now()
+    };
+    this.saveHistoryToStorage();
+  }
+  
+  // 获取特定页面类型的最新历史记录
+  getLatestHistoryByPageType(pageType) {
+    if (!this.history[pageType]) {
+      return null;
+    }
+    
+    const features = this.pageTypeFeatureMap[pageType] || [];
+    let latestHistory = null;
+    let latestTime = 0;
+    
+    for (const feature of features) {
+      if (this.history[pageType][feature] && this.history[pageType][feature].timestamp > latestTime) {
+        latestHistory = {
+          feature: feature,
+          data: this.history[pageType][feature].data
+        };
+        latestTime = this.history[pageType][feature].timestamp;
+      }
+    }
+    
+    return latestHistory;
   }
 
   /**
@@ -442,7 +528,7 @@ class UIManager {
     reloadBtn.innerHTML = '↻';
     reloadBtn.title = '重新生成';
     reloadBtn.onclick = () => {
-        if (this.onReload) this.onReload();
+        this.regenerate();
     };
 
     // 收起按钮
@@ -523,14 +609,26 @@ class UIManager {
   }
 
   initResponse(feature) {
-    // 取消可能的关闭操作
+    // 1. 取消可能的关闭操作和定时器
     if (this.closeTimer) {
         clearTimeout(this.closeTimer);
         this.closeTimer = null;
     }
 
+    // 2. 重置所有流式处理相关状态
+    this.fullContent = '';
+    this.sections = [];
+    this.currentSectionIndex = 0;
+    this.waitingForContinue = false;
+    this.isStreaming = true;
+    this.lastResponseData = null;
+    
+    // 3. 生成新的请求ID（确保旧请求的响应被忽略）
+    this.currentRequestId = Date.now();
+    
+    // 4. 重新创建UI
     this.createSidebar();
-    this.contentArea.innerHTML = ''; 
+    this.contentArea.innerHTML = ''; // 清空所有内容
     
     const responseContainer = document.createElement('div');
     responseContainer.className = 'oj-helper-response';
@@ -543,16 +641,8 @@ class UIManager {
     this.contentArea.appendChild(responseContainer);
     this.currentStreamTarget = contentDiv;
     this.lastResponseFeature = feature;
+    this.currentFeature = feature; // 更新当前功能类型
     
-    // 重置状态
-    this.fullContent = '';
-    this.sections = [];
-    this.currentSectionIndex = 0;
-    this.waitingForContinue = false;
-    this.isStreaming = true;
-    
-    // 生成新的请求ID
-    this.currentRequestId = Date.now();
     return this.currentRequestId;
   }
 
@@ -618,6 +708,14 @@ class UIManager {
     // 渲染反馈按钮 (如果还没有显示的话)
     if (!this.waitingForContinue) {
         this.renderFeedbackUI();
+    }
+    
+    // 保存历史记录到本地存储
+    if (this.lastResponseFeature && this.lastResponseData) {
+      const pageType = this.getCurrentPageType();
+      if (pageType !== 'other') {
+        this.saveHistory(pageType, this.lastResponseFeature, this.lastResponseData);
+      }
     }
   }
 
@@ -704,6 +802,37 @@ class UIManager {
   }
 
   showLastResponse() {
+    // 获取当前页面类型
+    const currentPageType = this.getCurrentPageType();
+    
+    // 1. 首先尝试从本地存储获取当前页面类型的最新历史记录
+    const latestHistory = this.getLatestHistoryByPageType(currentPageType);
+    
+    if (latestHistory) {
+      // 从本地存储加载历史记录
+      this.initResponse(latestHistory.feature);
+      this.fullContent = latestHistory.data;
+      this.sections = this.fullContent.split(this.SEPARATOR_REGEX);
+      
+      // 更新内存中的最后响应数据
+      this.lastResponseFeature = latestHistory.feature;
+      this.lastResponseData = latestHistory.data;
+      
+      // 渲染第一部分
+      this.currentStreamTarget.innerHTML = this.parseMarkdown(this.sections[0]);
+      this.addCopyButtons(this.currentStreamTarget);
+      
+      // 如果有更多部分，显示按钮
+      if (this.sections.length > 1) {
+          this.waitingForContinue = true;
+          const nextLabel = this.getNextStepLabel(latestHistory.feature, 0);
+          if (nextLabel) this.renderContinueButton(nextLabel);
+      }
+      
+      return true;
+    }
+    
+    // 2. 如果本地存储没有，尝试使用内存中的最后响应数据
     if (this.lastResponseFeature && this.lastResponseData) {
       // 恢复显示时，我们只显示第一部分，或者全部显示？
       // 简单起见，全部显示，或者重置状态。
@@ -725,6 +854,8 @@ class UIManager {
       
       return true;
     }
+    
+    // 3. 没有找到任何历史记录
     return false;
   }
 
@@ -880,8 +1011,15 @@ class UIManager {
     }
 
     try {
+        // 断开之前的活动连接（如果有）
+        if (this.activePort) {
+            this.activePort.disconnect();
+            this.activePort = null;
+        }
+        
         const context_json = JSON.stringify(payload);
         const port = chrome.runtime.connect({ name: 'ai-stream' });
+        this.activePort = port; // 保存当前活动连接
         
         port.postMessage({ 
             action: "invoke_feature_stream", 
@@ -919,6 +1057,12 @@ class UIManager {
                     this.showError('连接断开: ' + chrome.runtime.lastError.message);
                 }
             }
+            // 如果断开的是当前活动连接，重置所有相关状态
+            if (this.activePort === port) {
+                this.activePort = null;
+                this.isStreaming = false;
+                // 不要重置fullContent等状态，因为可能需要显示历史记录
+            }
         });
     } catch (e) {
         console.error('[Content-Script] Connection failed', e);
@@ -930,6 +1074,30 @@ class UIManager {
 
   // 显示个性化推荐输入框
   showRecommendationInput(callback) {
+    // 1. 取消可能的关闭操作和定时器
+    if (this.closeTimer) {
+        clearTimeout(this.closeTimer);
+        this.closeTimer = null;
+    }
+    
+    // 2. 断开之前的活动连接（如果有）
+    if (this.activePort) {
+        this.activePort.disconnect();
+        this.activePort = null;
+    }
+    
+    // 3. 重置所有状态
+    this.fullContent = '';
+    this.sections = [];
+    this.currentSectionIndex = 0;
+    this.waitingForContinue = false;
+    this.isStreaming = false;
+    this.lastResponseData = null;
+    this.currentRequestId = Date.now();
+    this.lastResponseFeature = 'recommend';
+    this.currentFeature = 'recommend'; // 更新当前功能类型
+    
+    // 4. 创建UI
     this.createSidebar();
     this.contentArea.innerHTML = '';
     
@@ -995,6 +1163,27 @@ class UIManager {
     };
     
     textarea.focus();
+  }
+
+  // 重新生成当前功能
+  regenerate() {
+    // 如果有自定义的重新生成回调，优先使用
+    if (this.onReload) {
+      this.onReload();
+      return;
+    }
+    
+    // 如果没有自定义回调，但有当前功能类型和最后一次的payload，直接重新发送请求
+    if (this.currentFeature && this.lastPayload) {
+      // 重置状态
+      this.initResponse(this.currentFeature);
+      // 重新发送请求
+      this.sendStreamRequest(this.lastPayload);
+    } else if (this.currentFeature) {
+      // 如果只有当前功能类型，需要重新获取上下文
+      // 这种情况不应该发生，因为 onReload 应该已经被设置
+      console.warn('[UIManager] regenerate() - Missing onReload callback or lastPayload');
+    }
   }
 }
 
