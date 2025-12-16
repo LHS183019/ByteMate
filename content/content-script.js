@@ -316,9 +316,54 @@ class UIManager {
       const btn = document.createElement('button');
       btn.className = 'oj-helper-copy-btn';
       btn.textContent = '复制';
-      btn.onclick = () => {
-        const code = block.querySelector('code').innerText;
-        navigator.clipboard.writeText(code).then(() => {
+      btn.onclick = async () => {
+        try {
+          // 获取代码元素
+          const codeElement = block.querySelector('code');
+          if (!codeElement) {
+            throw new Error('未找到代码元素');
+          }
+          
+          // 获取代码内容
+          const code = codeElement.innerText;
+          if (!code.trim()) {
+            throw new Error('代码内容为空');
+          }
+          
+          // 尝试使用现代浏览器的剪贴板API
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(code);
+          } else {
+            // 备用方案：创建临时textarea元素
+            const textarea = document.createElement('textarea');
+            textarea.value = code;
+            // 设置样式确保元素不可见但可访问
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '-9999px';
+            textarea.style.width = '2em';
+            textarea.style.height = '2em';
+            textarea.style.padding = '0';
+            textarea.style.border = 'none';
+            textarea.style.outline = 'none';
+            textarea.style.boxShadow = 'none';
+            textarea.style.background = 'transparent';
+            document.body.appendChild(textarea);
+            
+            // 选择文本
+            textarea.select();
+            textarea.setSelectionRange(0, code.length);
+            
+            // 使用document.execCommand复制
+            const success = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            
+            if (!success) {
+              throw new Error('复制失败，请手动复制');
+            }
+          }
+          
+          // 显示复制成功状态
           btn.textContent = '已复制';
           btn.classList.add('copied');
           
@@ -331,11 +376,25 @@ class UIManager {
             }
           });
 
+          // 2秒后恢复原始状态
           setTimeout(() => {
             btn.textContent = '复制';
             btn.classList.remove('copied');
           }, 2000);
-        });
+        } catch (error) {
+          console.error('复制失败:', error);
+          
+          // 显示错误状态
+          const originalText = btn.textContent;
+          btn.textContent = '复制失败';
+          btn.classList.add('error');
+          
+          // 2秒后恢复原始状态
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.remove('error');
+          }, 2000);
+        }
       };
       block.appendChild(btn);
     });
@@ -1011,13 +1070,24 @@ class UIManager {
   // 简单页面类型检测
   function detectPageType() {
     const href = location.href;
+    console.log('[Content-Script] detectPageType() href:', href);
     // 结果页：包含 /solution/ 或 /submission/
-    if (/\/solution\//.test(href) || /\/submission\//.test(href)) return 'result';
+    if (/\/solution\//.test(href) || /\/submission\//.test(href)) {
+      console.log('[Content-Script] detectPageType() returning "result"');
+      return 'result';
+    }
     // 提交页：包含 /submit/
-    if (/\/submit\/?$/.test(href) || /\/submit\//.test(href)) return 'submit';
+    if (/\/submit\/?$/.test(href) || /\/submit\//.test(href)) {
+      console.log('[Content-Script] detectPageType() returning "submit"');
+      return 'submit';
+    }
     // 题目页：通常是数字+字母结尾，或者没有特定后缀，且包含题目内容
     // 排除 submit 和 result 后，如果有题面主体，认为是题目页
-    if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) return 'problem';
+    if (document.querySelector('dl.problem-content') || document.querySelector('#pageTitle') || document.querySelector('.problem-statistics')) {
+      console.log('[Content-Script] detectPageType() returning "problem"');
+      return 'problem';
+    }
+    console.log('[Content-Script] detectPageType() returning "other"');
     return 'other';
   }
 
@@ -1280,6 +1350,24 @@ class UIManager {
 
     // 从编辑器/页面获取当前代码（尽可能覆盖常见编辑器）
     function getCurrentCodeFromPage() {
+      // 1. 检查是否在结果页（solution/submission页面）
+      if (/\/solution\//.test(location.href) || /\/submission\//.test(location.href)) {
+        // 尝试从常见的代码展示位置获取
+        const submissionCode = document.querySelector('.submission-code pre, .code pre, pre[class*="code"]');
+        if (submissionCode) return submissionCode.innerText || submissionCode.textContent || '';
+        // 尝试获取所有pre标签，筛选可能包含代码的
+        const allPre = document.querySelectorAll('pre');
+        for (const pre of allPre) {
+          if (pre.textContent && pre.textContent.trim().length > 50) {
+            // 检查内容是否更可能是代码（包含常见代码元素）
+            if (/\b(?:#include|using namespace|int main|void|class|function|return|for|while|if|else|const|static|public|private)\b/.test(pre.textContent)) {
+              return pre.textContent;
+            }
+          }
+        }
+      }
+      
+      // 2. 普通页面的代码获取逻辑
       const ta = document.querySelector('textarea');
       if (ta && ta.value && ta.value.trim().length > 0) return ta.value;
       const cmEl = document.querySelector('.CodeMirror');
@@ -1288,29 +1376,105 @@ class UIManager {
       }
       const aceEl = document.querySelector('.ace_text-input'); if (aceEl && aceEl.value) return aceEl.value;
       const mon = document.querySelector('.monaco-editor textarea'); if (mon && mon.value) return mon.value;
-      const codePre = document.querySelector('pre[class*="sh_"] , pre.sh_cpp, pre.code, .submission-code pre, .code pre');
+      const codePre = document.querySelector('pre[class*="sh_"] , pre.sh_cpp, pre.code, .code pre');
       if (codePre) return codePre.innerText || codePre.textContent || '';
       return '';
     }
 
     // 在结果页尝试提取报错信息（编译/运行错误/评测信息）
     function extractErrorInfo() {
-      // 优先抓取页面上专门的编译错误区域（例如编译错误标题后的 pre）
+      let errorInfo = '';
+      
+      // 添加调试信息
+      console.log('[Content-Script] extractErrorInfo() called');
+      
+      // 1. 提取提交状态信息
+      // 尝试多种选择器以确保找到元素
+      const compileStatusSelectors = [
+        '.compile-status',
+        'p.compile-status',
+        '.compile-info .compile-status',
+        '#compile-status'
+      ];
+      
+      let compileStatus = null;
+      for (const selector of compileStatusSelectors) {
+        compileStatus = document.querySelector(selector);
+        if (compileStatus) {
+          console.log('[Content-Script] compileStatus found with selector "' + selector + '":', compileStatus);
+          break;
+        }
+      }
+      
+      if (compileStatus) {
+        // 输出元素的完整HTML以便调试
+        console.log('[Content-Script] compileStatus HTML:', compileStatus.outerHTML);
+        
+        const statusText = compileStatus.textContent || compileStatus.innerText;
+        const statusLink = compileStatus.querySelector('a');
+        console.log('[Content-Script] statusLink found:', statusLink);
+        
+        if (statusLink) {
+          const status = statusLink.textContent || statusLink.innerText;
+          const statusClass = statusLink.className;
+          console.log('[Content-Script] status text:', status);
+          console.log('[Content-Script] status class:', statusClass);
+          errorInfo += `提交状态: ${status}\n`;
+        } else {
+          console.log('[Content-Script] status text without link:', statusText);
+          errorInfo += `${statusText}\n`;
+        }
+      } else {
+        // 如果没有找到.compile-status元素，尝试查找其他可能包含状态信息的元素
+        console.log('[Content-Script] No .compile-status found, trying alternative selectors');
+        
+        const alternativeSelectors = [
+          '.result-wrong',
+          '.result-right',
+          '.result-accepted',
+          '.result-error',
+          'a[class^="result-"]'
+        ];
+        
+        for (const selector of alternativeSelectors) {
+          const resultElement = document.querySelector(selector);
+          if (resultElement) {
+            console.log('[Content-Script] Found result element with selector "' + selector + '":', resultElement);
+            const status = resultElement.textContent || resultElement.innerText;
+            errorInfo += `提交状态: ${status}\n`;
+            break;
+          }
+        }
+      }
+      
+      // 2. 优先抓取页面上专门的编译错误区域（例如编译错误标题后的 pre）
       const cePre = document.querySelector('h3.h3-compile-status + pre, .compile-info pre, pre.compile-error');
-      if (cePre && (cePre.innerText || cePre.textContent || '').trim()) return (cePre.innerText || cePre.textContent || '').trim();
-      // 其次尝试一些常见容器
-      const selectors = ['.compile-error', '.judge-result', '.submission-result', '.error', '#judge-result'];
-      for (const s of selectors) {
-        const el = document.querySelector(s);
-        if (el && (el.innerText||el.textContent||'').trim()) return (el.innerText||el.textContent||'').trim();
+      if (cePre && (cePre.innerText || cePre.textContent || '').trim()) {
+        errorInfo += `\n详细错误信息:\n${(cePre.innerText || cePre.textContent || '').trim()}`;
       }
-      // fallback: 找到包含关键字的段
-      const allText = (document.body.innerText || '').slice(0, 2000);
-      if (/错误|Error|Compile|Runtime|WA|TLE|RTE/i.test(allText)) {
-        const m = allText.match(/.{0,500}/);
-        return m ? m[0] : allText;
+      
+      // 3. 其次尝试一些常见容器
+      if (!errorInfo.includes('详细错误信息:')) {
+        const selectors = ['.compile-error', '.judge-result', '.submission-result', '.error', '#judge-result'];
+        for (const s of selectors) {
+          const el = document.querySelector(s);
+          if (el && (el.innerText||el.textContent||'').trim()) {
+            errorInfo += `\n详细错误信息:\n${(el.innerText||el.textContent||'').trim()}`;
+            break;
+          }
+        }
       }
-      return '';
+      
+      // 4. fallback: 找到包含关键字的段
+      if (!errorInfo.includes('详细错误信息:')) {
+        const allText = (document.body.innerText || '').slice(0, 2000);
+        if (/错误|Error|Compile|Runtime|WA|TLE|RTE|Time Limit Exceeded|Wrong Answer|Accepted/i.test(allText)) {
+          const m = allText.match(/.{0,500}/);
+          errorInfo += `\n详细信息:\n${m ? m[0] : allText}`;
+        }
+      }
+      
+      return errorInfo.trim();
     }
 
     // 点击动作时的处理
@@ -1393,7 +1557,9 @@ class UIManager {
               }
 
               const currentCode = getCurrentCodeFromPage();
+              console.log('[Content-Script] handleContext() pageType:', pageType);
               const errorInfo = (pageType === 'result') ? extractErrorInfo() : '';
+              console.log('[Content-Script] handleContext() errorInfo:', errorInfo);
               const customPrompt = await loadPromptContent(key);
 
               const payload = {

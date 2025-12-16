@@ -23,7 +23,8 @@
     "storage",
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "clipboard-write"
   ],
 
   "host_permissions": [

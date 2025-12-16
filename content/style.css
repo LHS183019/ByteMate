@@ -437,6 +437,12 @@
   border-color: #764ba2;
 }
 
+.oj-helper-copy-btn.error {
+  background: #ffebee;
+  color: #d32f2f;
+  border-color: #d32f2f;
+}
+
 /* 引用块样式 */
 .oj-helper-markdown blockquote {
   margin: 16px 0;

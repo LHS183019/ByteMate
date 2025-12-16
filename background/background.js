@@ -577,8 +577,16 @@ async function invokeAIFeatureStream(context, port) {
     if (!response.ok) {
       if (response.status === 401) {
         throw new Error('API Key 无效或已过期，请在设置中检查您的 API Key。');
+      } else if (response.status === 403) {
+        throw new Error('API 访问被拒绝，可能是权限不足或API Key错误。');
+      } else if (response.status === 429) {
+        throw new Error('请求过于频繁，请稍后再试。');
+      } else if (response.status === 503) {
+        throw new Error('服务器暂时不可用（HTTP 503），可能是服务器崩溃或维护中，请稍等片刻后再试，或尝试切换其他模型提供商。');
+      } else if (response.status >= 500) {
+        throw new Error(`服务器错误（HTTP ${response.status}），可能是服务器崩溃或维护中，请稍后再试。`);
       }
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status} 错误，请检查网络连接或稍后再试。`);
     }
 
     const reader = response.body.getReader();
