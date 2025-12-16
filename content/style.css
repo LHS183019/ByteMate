@@ -60,13 +60,13 @@
 }
 
 .oj-helper-history-btn:hover {
-	background: #45a049;
+	background: #764ba2;
 	transform: scale(1.1);
 }
 
 .oj-helper-history-btn:active {
 	transform: scale(0.95);
-	background: #3d8b40;
+	background: #6a1b9a;
 }
 
 .oj-helper-history-btn:focus {
@@ -98,15 +98,15 @@
 /* 像素风格的菜单按钮样式 */
 .oj-helper-action {
 	background: #fff;
-	color: #000;
+	color: #4a148c;
 	padding: 10px 14px;
-	border: 3px solid #000;
+	border: 3px solid #764ba2;
 	font-size: 13px;
 	font-family: monospace;
 	font-weight: bold;
 	cursor: pointer;
 	transform-origin: center right; /* 修改为中心右侧，与新位置更匹配 */
-	transition: opacity 140ms ease, transform 160ms ease;
+	transition: opacity 140ms ease, transform 160ms ease, background 0.2s, color 0.2s;
 	opacity: 0;
 	transform: translateY(6px) scale(0.98);
 	/* 像素角效果 */
@@ -118,7 +118,6 @@
 	);
 	/* 像素化文本 */
 	image-rendering: pixelated;
-	text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
 }
 
 .oj-helper-menu.expanded .oj-helper-action {
@@ -126,8 +125,14 @@
 	transform: translateY(0) scale(1);
 }
 
+.oj-helper-action:hover {
+    background: #f3e5f5;
+    color: #4a148c;
+    border-color: #6a1b9a;
+}
+
 .oj-helper-action:focus {
-	outline: 2px solid rgba(25,118,210,0.2);
+	outline: 2px solid rgba(118, 75, 162, 0.4);
 	transform: translateY(0) scale(1.05);
 }
 
@@ -179,7 +184,7 @@
 /* 内容容器 */
 .oj-helper-content {
 	background: white;
-	border: 4px solid #000;
+	border: 4px solid #764ba2;
 	border-radius: 12px;
 	padding: 20px;
 	max-width: 800px;
@@ -204,7 +209,7 @@
 	right: 10px;
 	background: #ff4444;
 	color: white;
-	border: 2px solid #000;
+	border: 2px solid #764ba2;
 	border-radius: 50%;
 	width: 32px;
 	height: 32px;
@@ -226,7 +231,7 @@
 /* 头部 */
 .oj-helper-header {
 	margin-bottom: 20px;
-	border-bottom: 2px solid #000;
+	border-bottom: 2px solid #e1bee7;
 	padding-bottom: 10px;
 }
 
@@ -257,8 +262,8 @@
 .oj-helper-spinner {
 	width: 40px;
 	height: 40px;
-	border: 4px solid #f3f3f3;
-	border-top: 4px solid #000;
+	border: 4px solid #f3e5f5;
+	border-top: 4px solid #764ba2;
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
 	/* 像素风格 */
@@ -297,6 +302,29 @@
 	margin-top: 10px;
 }
 
+/* 仅显示复制按钮的容器样式 */
+.oj-helper-copy-only-container {
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+}
+
+.oj-helper-prompt-container h5 {
+  display: none; /* 隐藏提示词标题 */
+}
+
+.oj-helper-code-block {
+  position: relative;
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 10px 0;
+}
+
 /* 文本内容 */
 .oj-helper-text {
 	font-family: monospace;
@@ -315,8 +343,8 @@
   font-size: 28px;
   font-weight: 700;
   margin: 10px 0 10px 0;
-  color: #1a1a1a;
-  border-bottom: 2px solid #e8e8e8;
+  color: #4a148c;
+  border-bottom: 2px solid #e1bee7;
   padding-bottom: 8px;
 }
 
@@ -324,26 +352,27 @@
   font-size: 24px;
   font-weight: 700;
   margin: 10px 0 10px 0;
-  color: #2c3e50;
-  border-left: 4px solid #000;
+  color: #fff;
+  border-left: none;
   padding-left: 10px;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 8px 12px;
-  border-radius: 0 4px 4px 0;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(118, 75, 162, 0.2);
 }
 
 .oj-helper-markdown h3 {
   font-size: 20px;
   font-weight: 600;
   margin: 20px 0 12px 0;
-  color: #34495e;
+  color: #6a1b9a;
 }
 
 .oj-helper-markdown h4 {
   font-size: 16px;
   font-weight: 600;
   margin: 16px 0 10px 0;
-  color: #1a1a1a;
+  color: #4a148c;
 }
 
 .oj-helper-markdown p {
@@ -367,17 +396,17 @@
 
 .oj-helper-markdown strong {
   font-weight: 700;
-  color: #000;
-  background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
+  color: #4a148c;
+  background: linear-gradient(120deg, #e1bee7 0%, #d1c4e9 100%);
   background-repeat: no-repeat;
-  background-size: 100% 30%;
+  background-size: 100% 40%;
   background-position: 0 88%;
   padding: 0 2px;
 }
 
 .oj-helper-markdown em {
   font-style: italic;
-  color: #555;
+  color: #6a1b9a;
 }
 
 /* 列表样式优化 */
@@ -405,6 +434,7 @@
   padding-top: 35px; /* 为复制按钮留出空间 */
 }
 
+/* 默认复制按钮样式（用于代码块） */
 .oj-helper-copy-btn {
   position: absolute;
   top: 5px;
@@ -421,14 +451,67 @@
   transition: background 0.2s;
 }
 
-.oj-helper-copy-btn:hover {
-  background: #ddd;
+/* 错误消息中的复制按钮样式 - 与continue按钮保持一致 */
+.oj-helper-copy-only-container .oj-helper-copy-btn {
+  position: static;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 12px 24px;
+  border: none;
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-block;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px rgba(118, 75, 162, 0.3);
+  transition: all 0.2s;
+  margin: 0 auto;
+  z-index: auto;
+  
+  /* Pixel corners */
+  clip-path: polygon(
+      0% 4px, 4px 4px, 4px 0%,
+      calc(100% - 4px) 0%, calc(100% - 4px) 4px, 100% 4px,
+      100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+      4px 100%, 4px calc(100% - 4px), 0% calc(100% - 4px)
+  );
+}
+
+.oj-helper-copy-only-container .oj-helper-copy-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px rgba(118, 75, 162, 0.3);
+  filter: brightness(1.1);
+}
+
+.oj-helper-copy-only-container .oj-helper-copy-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px rgba(0,0,0,0.2);
+}
+
+/* 复制成功/失败状态样式 - 覆盖默认样式以保持渐变按钮风格 */
+.oj-helper-copy-only-container .oj-helper-copy-btn.copied {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.oj-helper-copy-only-container .oj-helper-copy-btn.error {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: white;
+  border: none;
 }
 
 .oj-helper-copy-btn.copied {
-  background: #4caf50;
+  background: #764ba2;
   color: white;
-  border-color: #4caf50;
+  border-color: #764ba2;
+}
+
+.oj-helper-copy-btn.error {
+  background: #ffebee;
+  color: #d32f2f;
+  border-color: #d32f2f;
 }
 
 /* 引用块样式 */
@@ -458,7 +541,7 @@
 }
 
 .oj-helper-continue-btn {
-    background: #000;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
     padding: 12px 24px;
     border: none;
@@ -469,8 +552,8 @@
     position: relative;
     display: inline-block;
     text-transform: uppercase;
-    box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
-    transition: all 0.1s;
+    box-shadow: 4px 4px 0px rgba(118, 75, 162, 0.3);
+    transition: all 0.2s;
     
     /* Pixel corners */
     clip-path: polygon(
@@ -483,8 +566,8 @@
 
 .oj-helper-continue-btn:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0px rgba(0,0,0,0.2);
-    background: #333;
+    box-shadow: 6px 6px 0px rgba(118, 75, 162, 0.3);
+    filter: brightness(1.1);
 }
 
 .oj-helper-continue-btn:active {
@@ -500,12 +583,16 @@
 }
 
 .oj-helper-markdown a {
-  color: #0366d6;
+  color: #764ba2;
   text-decoration: none;
+  border-bottom: 1px dashed #764ba2;
+  transition: all 0.2s;
 }
 
 .oj-helper-markdown a:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  border-bottom-style: solid;
+  background: rgba(118, 75, 162, 0.1);
 }
 
 /* 各种结果渲染样式 */
@@ -518,7 +605,7 @@
 	margin-bottom: 10px;
 	font-size: 18px;
 	font-weight: bold;
-	border-bottom: 2px solid #000;
+	border-bottom: 2px solid #e1bee7;
 	padding-bottom: 5px;
 }
 
@@ -540,7 +627,7 @@
 
 .approach {
 	background: #f9f9f9;
-	border: 2px solid #000;
+	border: 2px solid #764ba2;
 	border-radius: 8px;
 	padding: 15px;
 	/* 像素角效果 */
@@ -555,7 +642,7 @@
 .approach h4 {
 	margin-top: 0;
 	font-size: 16px;
-	border-bottom: 1px solid #000;
+	border-bottom: 1px solid #e1bee7;
 	padding-bottom: 5px;
 	margin-bottom: 10px;
 }
@@ -575,8 +662,8 @@
 
 .tag-item {
 	display: inline-block;
-	background: #e3f2fd;
-	border: 1px solid #000;
+	background: #f3e5f5;
+	border: 1px solid #764ba2;
 	border-radius: 4px;
 	padding: 5px 10px;
 	margin: 5px;
@@ -586,22 +673,22 @@
 }
 
 .tag-item.relevance-高 {
-	background: #ffebee;
+	background: #e1bee7;
 }
 
 .tag-item.relevance-中 {
-	background: #fff8e1;
+	background: #f3e5f5;
 }
 
 .tag-item.relevance-低 {
-	background: #e8f5e9;
+	background: #f8f9fa;
 }
 
 /* 通用代码块样式 - 确保不与Markdown样式冲突，同时排除openjudge solution页面的代码显示 */
-pre:not(.oj-helper-markdown pre):not(.sh_sourceCode){
+pre:not(.oj-helper-markdown pre):not(.sh_sourceCode):not(dl.problem-content pre){
 background: #2d2d2d;
 	color: #f8f8f2;
-	border: 2px solid #000;
+	border: 2px solid #764ba2;
 	border-radius: 8px;
 	padding: 15px;
 	overflow-x: auto;
@@ -633,35 +720,39 @@ background: #2d2d2d;
 .oj-helper-sidebar {
   position: fixed;
   top: 0;
-  right: -520px; /* 初始隐藏 */
+  right: 0;
   width: 500px; /* 加宽 */
   height: 100vh;
   background: #ffffff;
   box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
   z-index: 2147483648;
-  transition: right 0.3s ease;
+  transform: translateX(100%); /* 初始移出屏幕 */
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease; /* 使用更平滑的贝塞尔曲线 */
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .oj-helper-sidebar.visible {
-  right: 0;
+  transform: translateX(0);
+  box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15); /* 展开时加深阴影 */
 }
 
 .oj-helper-sidebar-header {
   padding: 20px 30px; /* 增加内边距 */
-  border-bottom: 1px solid #eee;
+  border-bottom: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .oj-helper-sidebar-header h2 {
   margin: 0;
   font-size: 18px;
-  color: #333;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .oj-helper-sidebar-close {
@@ -669,8 +760,9 @@ background: #2d2d2d;
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: #666;
+  color: rgba(255, 255, 255, 0.8);
   padding: 4px 8px;
+  transition: color 0.2s;
 }
 
 .oj-helper-sidebar-collapse {
@@ -678,10 +770,11 @@ background: #2d2d2d;
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: #666;
+  color: rgba(255, 255, 255, 0.8);
   padding: 4px 8px;
   margin-right: 5px;
   font-weight: bold;
+  transition: color 0.2s;
 }
 
 .oj-helper-sidebar-reload {
@@ -689,16 +782,17 @@ background: #2d2d2d;
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: #666;
+  color: rgba(255, 255, 255, 0.8);
   padding: 4px 8px;
   margin-right: 5px;
   font-weight: bold;
+  transition: color 0.2s;
 }
 
 .oj-helper-sidebar-close:hover,
 .oj-helper-sidebar-collapse:hover,
 .oj-helper-sidebar-reload:hover {
-  color: #333;
+  color: white;
 }
 
 .oj-helper-sidebar-content {
@@ -763,5 +857,145 @@ background: #2d2d2d;
 
 @keyframes oj-spin {
   to { transform: rotate(360deg); }
+}
+
+/* 反馈按钮样式 */
+.oj-helper-feedback-root {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px dashed #eee;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.oj-helper-feedback-btn {
+    background: transparent;
+    border: 1px solid #e0e0e0;
+    color: #888;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.oj-helper-feedback-btn:hover {
+    background: #f3e5f5;
+    color: #764ba2;
+    border-color: #e1bee7;
+}
+
+.oj-helper-feedback-options {
+    display: flex;
+    gap: 8px;
+    margin-left: 10px;
+    animation: fadeIn 0.3s ease;
+}
+
+.oj-helper-feedback-option {
+    background: #fff;
+    border: 1px solid #eee;
+    color: #666;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.oj-helper-feedback-option:hover {
+    background: #f3e5f5;
+    color: #764ba2;
+    border-color: #e1bee7;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.oj-helper-loading-spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+
+/* 推荐输入框样式 */
+.oj-helper-recommend-input {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.oj-helper-recommend-header h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+}
+
+.oj-helper-recommend-header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.oj-helper-recommend-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 100px;
+  box-sizing: border-box;
+}
+
+.oj-helper-recommend-form textarea:focus {
+  outline: none;
+  border-color: #764ba2;
+  box-shadow: 0 0 0 2px rgba(118, 75, 162, 0.1);
+}
+
+.oj-helper-recommend-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.oj-helper-recommend-tags .tag {
+  background: #f0f2f5;
+  color: #555;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.oj-helper-recommend-tags .tag:hover {
+  background: #f3e5f5;
+  color: #764ba2;
+}
+
+.oj-helper-submit-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  align-self: flex-end;
+  transition: background 0.2s;
+}
+
+.oj-helper-submit-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 

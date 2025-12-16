@@ -6,6 +6,30 @@ const STORAGE_KEYS = {
   API_KEY: 'bytemate_api_key'
 };
 
+// LLM 提供商配置
+const PROVIDER_CONFIG = {
+  deepseek: {
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-chat'
+  },
+  qwen: {
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-plus'
+  },
+  zhipu: {
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    model: 'glm-4'
+  },
+  openai: {
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4'
+  },
+  groq: {
+    baseUrl: 'https://api.groq.com/openai/v1',
+    model: 'llama3-70b-8192'
+  }
+};
+
 // 题目缓存存储（内存缓存）
 const problemCache = new Map();
 
@@ -13,6 +37,17 @@ const problemCache = new Map();
 let appConfig = {
   model: null,
   apiKey: null
+};
+
+// 记录最后一次复制代码的时间
+let lastCopyTime = 0;
+
+// 默认配置（内置 Key）
+// ⚠️ 注意：在客户端代码中硬编码 API Key 存在安全风险。
+// 建议仅在内部测试或受信任环境中使用。
+const DEFAULT_CONFIG = {
+  model: 'deepseek',
+  apiKey: '' // 默认不提供API Key，让用户自己配置
 };
 
 // 工具函数：从local storage获取值
@@ -32,11 +67,19 @@ function getFromStorage(key) {
 async function initializeConfig() {
   try {
     // 从local storage加载配置
-    appConfig.model = await getFromStorage(STORAGE_KEYS.MODEL);
-    appConfig.apiKey = await getFromStorage(STORAGE_KEYS.API_KEY);
+    const storedModel = await getFromStorage(STORAGE_KEYS.MODEL);
+    const storedApiKey = await getFromStorage(STORAGE_KEYS.API_KEY);
+
+    // 使用存储的配置，如果不存在则使用默认配置
+    appConfig.model = storedModel || DEFAULT_CONFIG.model;
+    appConfig.apiKey = storedApiKey || DEFAULT_CONFIG.apiKey;
     
     console.log('[Background] 配置初始化完成:', {
       model: appConfig.model,
+      apiKey: appConfig.apiKey ? '******' + appConfig.apiKey.slice(-4) : null,
+      storedModel,
+      storedApiKey: storedApiKey ? '******' + storedApiKey.slice(-4) : null,
+      usingDefaultKey: !storedApiKey,
       hasApiKey: !!appConfig.apiKey
     });
   } catch (error) {
@@ -44,131 +87,128 @@ async function initializeConfig() {
   }
 }
 
-// 发送请求到后端API，包含用户配置
-async function sendRequestToBackend(endpoint, data) {
-  const backendUrl = 'http://localhost:3000';
-  const url = `${backendUrl}${endpoint}`;
-  
+// 加载 Prompt 模板
+async function loadPromptTemplate(featureKey) {
   try {
-    // 确保配置已初始化
-    if (!appConfig) {
-      await initializeConfig();
-    }
-    
-    // 合并用户配置到请求数据
-    const requestData = {
-      ...data,
-      model: appConfig.model,
-      apiKey: appConfig.apiKey
+    const fileMap = {
+      'guide': 'guide.txt',
+      'hint': 'idea.txt',
+      'idea': 'idea.txt',
+      'fix': 'code_fix.txt',
+      'recommend': 'knowledge_tag.txt',
+      'knowledge_tag': 'knowledge_tag.txt'
     };
+    const filename = fileMap[featureKey];
+    if (!filename) return null;
     
-    console.log('发送请求到后端:', { endpoint, model: requestData.model });
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestData)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('发送请求到后端失败:', error);
-    throw error;
+    const url = chrome.runtime.getURL(`prompts/${filename}`);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to load prompt: ${filename}`);
+    return await response.text();
+  } catch (e) {
+    console.error('[Background] Failed to load prompt:', e);
+    return null;
   }
+}
+
+// 生成 Prompt
+async function generatePrompt(context) {
+  console.log('[Background] generatePrompt called with context:', context);
+  
+  const {
+    feature,
+    title,
+    statement,
+    currentCode,
+    samples,
+    customPrompt,
+    error,
+    feedbackReason // 新增：用户反馈原因
+  } = context;
+
+  const SEPARATOR = '__NEXT_STEP__';
+
+  // 如果存在反馈原因，添加特定的指令
+  let feedbackInstruction = '';
+  if (feedbackReason) {
+    const reasonMap = {
+      'code_error': '用户反馈之前的代码有错误或无法运行。请仔细检查代码逻辑，修复潜在的 Bug，并给出正确的代码。',
+      'bad_hint': '用户反馈之前的提示不够清晰或没有帮助。请尝试换一个角度进行解释，提供更直观的思路。',
+      'too_long': '用户反馈之前的回答太长了。请务必精简内容，只保留最核心的信息。',
+      'too_short': '用户反馈之前的回答太短了。请补充更多细节，详细解释原理和步骤。'
+    };
+    const instruction = reasonMap[feedbackReason] || '用户对之前的回答不满意，请尝试改进。';
+    feedbackInstruction = `\n\n**特别注意：${instruction}**\n\n`;
+  }
+
+  // 加载基础 Prompt 模板
+  let basePrompt = customPrompt;
+  if (!basePrompt) {
+    basePrompt = await loadPromptTemplate(feature) || `你是一个编程教师。\n`;
+  }
+
+  // 添加反馈指令
+  if (feedbackInstruction && basePrompt) {
+    // 在模板开头的描述部分添加反馈指令
+    // 匹配两种格式：有换行符和没有换行符的情况
+    const regex = /^(\s*[\s\S]+?)(\n?\*\*重要要求\*\*[:：])/s;
+    if (regex.test(basePrompt)) {
+      basePrompt = basePrompt.replace(regex, `$1${feedbackInstruction}$2`);
+    } else {
+      // 如果没有找到**重要要求**标记，直接在模板开头添加反馈指令
+      basePrompt = feedbackInstruction + basePrompt;
+    }
+  }
+
+  let fullPrompt = `${basePrompt}\n\n`;
+
+  if (context.userQuery) {
+    fullPrompt += `=== 用户个性化需求 (请优先关注) ===\n${context.userQuery}\n\n`;
+  }
+
+  fullPrompt += `=== 当前页面上下文 (仅供参考，如无关请忽略) ===
+题目标题: ${title}
+题目描述: ${statement}
+
+当前用户代码:
+\`\`\`cpp
+${currentCode || '// 用户还未提交代码'}
+\`\`\`
+
+示例:
+${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: ${s.output}`).join('\n') : '无'}
+`;
+
+  if (error) {
+    fullPrompt += `\n\n错误状态/信息:\n${error}\n`;
+  }
+
+  fullPrompt += `\n请直接回复分析结果。`;
+  console.log('[Background] Generated full prompt:', fullPrompt);
+  return fullPrompt;
+}
+
+// 获取 LLM 配置
+function getLLMConfig() {
+  const providerMap = {
+    'OpenAI GPT-4': 'openai',
+    'DeepSeek': 'deepseek',
+    'Zhipu (智谱)': 'zhipu',
+    'Qwen (通义千问)': 'qwen',
+    'Groq': 'groq'
+  };
+  
+  const normalizedProvider = providerMap[appConfig.model] || 'deepseek';
+  const config = PROVIDER_CONFIG[normalizedProvider];
+  
+  return {
+    ...config,
+    apiKey: appConfig.apiKey
+  };
 }
 
 // 初始化配置
 initializeConfig();
-
-// 向backend同步配置
-async function syncConfigToBackend() {
-  try {
-    // 检查配置是否存在
-    if (!appConfig || !appConfig.model) {
-      console.error('配置同步失败: 配置未初始化或模型未选择');
-      throw new Error('配置未初始化或模型未选择');
-    }
-    
-    const backendUrl = 'http://localhost:3000';
-    
-    // 将前端模型名称转换为后端使用的格式
-    const providerMap = {
-      'OpenAI GPT-4': 'openai',
-      'DeepSeek': 'deepseek',
-      'Zhipu (智谱)': 'zhipu',
-      'Qwen (通义千问)': 'qwen',
-      'Groq': 'groq'
-    };
-    
-    const normalizedProvider = providerMap[appConfig.model] || 'deepseek';
-    
-    // 准备更新的数据
-    const configData = {
-      provider: normalizedProvider,
-      apiKeys: {}
-    };
-    
-    // 只更新对应提供商的API密钥
-    configData.apiKeys[normalizedProvider] = appConfig.apiKey || '';
-    
-    console.log('正在同步配置到backend:', {
-      provider: normalizedProvider,
-      backendUrl: backendUrl,
-      hasApiKey: !!appConfig.apiKey
-    });
-    
-    // 添加超时处理
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-    
-    try {
-      const response = await fetch(`${backendUrl}/api/config`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(configData),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorDetails = await response.text().catch(() => '无法获取错误详情');
-        console.error(`配置同步失败: HTTP错误 ${response.status}`, errorDetails);
-        throw new Error(`HTTP错误! 状态码: ${response.status} - ${errorDetails}`);
-      }
-      
-      const result = await response.json();
-      console.log('配置同步成功:', result);
-      return result;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if (error.name === 'AbortError') {
-        console.error('配置同步失败: 请求超时（10秒）');
-        throw new Error('请求超时，请检查后端服务是否正常运行');
-      }
-      
-      // 网络错误特殊处理
-      if (!error.message.includes('HTTP')) {
-        console.error('配置同步失败: 网络错误或后端服务未运行', error);
-        throw new Error(`网络错误: ${error.message || '无法连接到后端服务'}`);
-      }
-      
-      throw error;
-    }
-  } catch (error) {
-    console.error('配置同步失败:', error);
-    throw error;
-  }
-}
 
 // 监听来自 content-script 和 popup 的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -187,16 +227,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 重新初始化配置以获取最新的API密钥
     initializeConfig()
       .then(() => {
-        // 同步配置到backend
-        return syncConfigToBackend();
-      })
-      .then(() => {
-        sendResponse({ ok: true, message: '配置已更新并同步到后端' });
+        sendResponse({ ok: true, message: '配置已更新' });
       })
       .catch(error => {
-        console.error('配置同步失败:', error);
-        // 即使同步失败，本地配置仍已更新，返回成功
-        sendResponse({ ok: true, message: '本地配置已更新，但同步到后端失败', error: error.message });
+        console.error('配置更新失败:', error);
+        sendResponse({ ok: false, error: error.message });
       });
     
     return true;
@@ -206,6 +241,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const {data} = request;
     const {result, praticeId, submitTime} = data;
     console.log(`[Background] result: ${result}, praticeId: ${praticeId}, submitTime: ${submitTime}`);
+    
+    // 发送提交结果遥测
+    // 检查是否是“复制后提交”（例如 10 分钟内）
+    const isCopied = (Date.now() - lastCopyTime) < 10 * 60 * 1000;
+    
+    sendTelemetryEvent('code_submission', {
+      result: result,
+      problem_id: praticeId,
+      is_copied: isCopied ? 'yes' : 'no',
+      time_since_copy: isCopied ? Math.round((Date.now() - lastCopyTime) / 1000) : -1
+    });
+
     chrome.storage.local.get((storageData) => {
       let problemStats = storageData.problemStats || {};
       if(praticeId in problemStats) {
@@ -350,6 +397,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'send_feedback') {
+    const { feature, reason } = request.data || {};
+    console.log('[Background] 收到用户反馈:', feature, reason);
+    
+    sendTelemetryEvent('user_feedback', {
+      feature: feature || 'unknown',
+      reason: reason,
+      timestamp: Date.now()
+    });
+    
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (request.action === 'copy_code') {
+    lastCopyTime = Date.now();
+    const { length } = request.data || {};
+    console.log('[Background] User copied code, length:', length);
+    
+    sendTelemetryEvent('code_copy', {
+      length: length || 0
+    });
+    return true;
+  }
+
   sendResponse({ ok: false, error: 'Unknown action' });
 });
 
@@ -362,54 +434,84 @@ async function invokeAIFeature(feature, context, sendResponse) {
     await initializeConfig();
     
     console.log('[AI-Feature] Starting:', feature);
-    console.log('[AI-Feature] Context:', {
-      feature: context.feature,
-      pageType: context.pageType,
-      title: context.title,
-      codeLength: context.currentCode?.length || 0,
-    });
 
     // 检查配置
-    if (!appConfig.apiKey) {
-      throw new Error('未配置 API Key');
+    if (!appConfig.apiKey || !appConfig.model) {
+      // 即使API未配置，也要生成prompt以便用户复制
+      const prompt = await generatePrompt({ ...context, feature });
+      if (!appConfig.apiKey) {
+        throw new Error(`未配置 API Key|||${prompt}`);
+      } else {
+        throw new Error(`未选择模型|||${prompt}`);
+      }
     }
+
+    const llmConfig = getLLMConfig();
+    const prompt = await generatePrompt({ ...context, feature });
     
-    if (!appConfig.model) {
-      throw new Error('未选择模型');
+    // 记录开始时间用于计算延迟
+    context.startTime = Date.now();
+    
+    // 发送开始遥测
+    sendTelemetryEvent('ai_feature_start', {
+      feature: feature,
+      model: appConfig.model
+    });
+    
+    console.log('[AI-Feature] Sending request to LLM Provider:', llmConfig.baseUrl);
+    console.log('[AI-Feature] Final Prompt:', prompt);
+    const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${llmConfig.apiKey}`
+      },
+      body: JSON.stringify({
+        model: llmConfig.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.6,
+        max_tokens: 3000
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        throw new Error('API Key 无效或已过期，请在设置中检查您的 API Key。');
+      }
+      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
     }
-    
-    // 准备请求数据，确保所有必要字段都有默认值
-    const requestData = {
-      feature: context.feature || feature,
-      title: context.title || '',
-      statement: context.statement || '',
-      currentCode: context.currentCode || '',
-      samples: context.samples || [],
-      problemId: context.problemId || '',
-      error: context.error || '',
-      customPrompt: context.customPrompt
-    };
 
-    console.log('[AI-Feature] Sending request using sendRequestToBackend');
+    const data = await response.json();
+    const result = data.choices[0]?.message?.content || '';
 
-    // 使用sendRequestToBackend函数发送请求
-    const result = await sendRequestToBackend('/api/assist', requestData);
+    console.log('[AI-Feature] Success');
 
-    console.log('[AI-Feature] Success:', {
-      success: result.success,
-      feature: result.feature,
-      resultType: typeof result.result,
+    // 发送成功遥测
+    sendTelemetryEvent('ai_feature_success', {
+      feature: feature,
+      model: appConfig.model,
+      latency: Date.now() - (context.startTime || Date.now())
     });
 
     // 返回结果给 content-script
     sendResponse({
-      success: result.success,
+      success: true,
       feature,
-      result: result.result,
-      timestamp: result.timestamp || Date.now(),
+      result: result,
+      timestamp: Date.now(),
     });
   } catch (error) {
     console.error('[AI-Feature] Error:', error.message);
+    
+    // 发送失败遥测
+    sendTelemetryEvent('ai_feature_error', {
+      feature: feature,
+      model: appConfig.model,
+      error_type: error.message.includes('API Key') ? 'auth_error' : 'api_error',
+      error_message: error.message.substring(0, 100)
+    });
+
     sendResponse({
       success: false,
       error: error.message,
@@ -452,31 +554,54 @@ chrome.runtime.onConnect.addListener((port) => {
 async function invokeAIFeatureStream(context, port) {
   try {
     console.log('[AI-Stream] Starting:', context.feature);
+    
+    // 确保使用最新的配置
+    await initializeConfig();
 
-    const payload = {
-      feature: context.feature,
-      title: context.title,
-      statement: context.statement,
-      currentCode: context.currentCode,
-      samples: context.samples,
-      problemId: context.problemId,
-      error: context.error || '',
-      customPrompt: context.customPrompt,
-      stream: true, // 开启流式
-    };
+    if (!appConfig.apiKey || !appConfig.model) {
+      // 即使API未配置，也要生成prompt以便用户复制
+      const prompt = await generatePrompt(context);
+      if (!appConfig.apiKey) {
+        throw new Error(`未配置 API Key|||${prompt}`);
+      } else {
+        throw new Error(`未选择模型|||${prompt}`);
+      }
+    }
 
-    const backendUrl = 'http://localhost:3000/api/assist';
+    const llmConfig = getLLMConfig();
+    const prompt = await generatePrompt(context);
 
-    const response = await fetch(backendUrl, {
+    console.log('[AI-Stream] Sending request to LLM Provider:', llmConfig.baseUrl);
+    console.log('[AI-Stream] Final Prompt:', prompt);
+
+    const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${llmConfig.apiKey}`
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        model: llmConfig.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.6,
+        max_tokens: 3000,
+        stream: true
+      })
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      if (response.status === 401) {
+        throw new Error('API Key 无效或已过期，请在设置中检查您的 API Key。');
+      } else if (response.status === 403) {
+        throw new Error('API 访问被拒绝，可能是权限不足或API Key错误。');
+      } else if (response.status === 429) {
+        throw new Error('请求过于频繁，请稍后再试。');
+      } else if (response.status === 503) {
+        throw new Error('服务器暂时不可用（HTTP 503），可能是服务器崩溃或维护中，请稍等片刻后再试，或尝试切换其他模型提供商。');
+      } else if (response.status >= 500) {
+        throw new Error(`服务器错误（HTTP ${response.status}），可能是服务器崩溃或维护中，请稍后再试。`);
+      }
+      throw new Error(`HTTP ${response.status} 错误，请检查网络连接或稍后再试。`);
     }
 
     const reader = response.body.getReader();
@@ -494,13 +619,16 @@ async function invokeAIFeatureStream(context, port) {
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') {
+            port.postMessage({ type: 'done' });
+            break;
+          }
           try {
-            const data = JSON.parse(line.slice(6));
-            if (data.content) {
-              port.postMessage({ type: 'chunk', data: data.content });
-            }
-            if (data.done) {
-              port.postMessage({ type: 'done' });
+            const data = JSON.parse(jsonStr);
+            const content = data.choices[0]?.delta?.content;
+            if (content) {
+              port.postMessage({ type: 'chunk', data: content });
             }
           } catch (e) {
             // ignore parse error
@@ -642,3 +770,56 @@ setInterval(() => {
     }
   }
 }, 60 * 60 * 1000); // 每小时检查一次
+
+// ============ 遥测 (Telemetry) 配置 ============
+// 使用 Google Analytics 4 Measurement Protocol
+const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
+const GA_MEASUREMENT_ID = 'G-KVX34E0R5J'; // TODO: 替换为您的 GA4 Measurement ID
+const GA_API_SECRET = 'Uf8UWKvESna2dkZjXjVk9A';       // TODO: 替换为您的 GA4 API Secret
+const DEFAULT_CLIENT_ID = 'anonymous_user';
+
+// 获取或生成客户端 ID
+async function getClientId() {
+  try {
+    const result = await chrome.storage.local.get('client_id');
+    if (result.client_id) {
+      return result.client_id;
+    } else {
+      const newId = crypto.randomUUID();
+      await chrome.storage.local.set({ client_id: newId });
+      return newId;
+    }
+  } catch (e) {
+    return DEFAULT_CLIENT_ID;
+  }
+}
+
+// 发送遥测事件
+async function sendTelemetryEvent(eventName, params = {}) {
+  try {
+    // 如果没有配置 ID，则跳过（开发模式）
+    if (GA_MEASUREMENT_ID === 'G-XXXXXXXXXX') return;
+
+    const clientId = await getClientId();
+    
+    const payload = {
+      client_id: clientId,
+      events: [{
+        name: eventName,
+        params: {
+          ...params,
+          session_id: Date.now().toString(), // 简单会话 ID
+          engagement_time_msec: 100
+        }
+      }]
+    };
+
+    await fetch(`${GA_ENDPOINT}?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    // 遥测失败不应影响主功能，仅打印日志
+    console.warn('[Telemetry] Failed to send event:', error);
+  }
+}

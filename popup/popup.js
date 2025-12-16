@@ -170,13 +170,8 @@ async function saveSettings() {
   const model = DOM.modelSelect.value;
   const apiKey = DOM.apiKeyInput.value.trim();
 
-  if (!apiKey) {
-    showStatus('请输入 API Key', 'error');
-    return;
-  }
-
-  // 验证 API Key 长度（简单校验）
-  if (apiKey.length < 10) {
+  // 验证 API Key 长度（如果用户输入了 Key）
+  if (apiKey && apiKey.length < 10) {
     showStatus('API Key 过短，请检查输入', 'error');
     return;
   }
@@ -186,15 +181,22 @@ async function saveSettings() {
     await StorageManager.setStorageType('local');
     
     await StorageManager.setItem(STORAGE_KEYS.MODEL, model);
-    await StorageManager.setItem(STORAGE_KEYS.API_KEY, apiKey);
     
-    console.log('设置已保存 - 模型:', model, '| API Key:', apiKey.substring(0, 5) + '***');
+    if (apiKey) {
+        await StorageManager.setItem(STORAGE_KEYS.API_KEY, apiKey);
+        console.log('设置已保存 - 模型:', model, '| API Key:', apiKey.substring(0, 5) + '***');
+    } else {
+        // 如果用户留空，则删除存储的 Key，以便后台使用默认 Key
+        await StorageManager.removeItem(STORAGE_KEYS.API_KEY);
+        console.log('设置已保存 - 模型:', model, '| 使用默认 API Key');
+    }
+    
     showStatus('✓ 设置已保存', 'success');
 
     // 通知后台脚本配置已更新
     notifyBackgroundSettings({
       model: model,
-      hasApiKey: true
+      hasApiKey: true // 无论是用户设置还是默认，现在都应该有 Key
     });
 
     // 2秒后清除提示
