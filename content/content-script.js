@@ -1109,20 +1109,20 @@ class UIManager {
     let currentFrame = 0;
     
     // 添加点击事件监听器，在speaking和idle动画之间来回切换
-    // main.addEventListener('click', function() {
-    //   // 如果侧边栏已创建但被收起，点击小猫时重新显示
-    //   if (uiManager && uiManager.sidebar && !uiManager.sidebar.classList.contains('visible')) {
-    //     uiManager.sidebar.classList.add('visible');
-    //     return; // 仅显示侧边栏，不切换动画或展开菜单
-    //   }
+    main.addEventListener('click', function() {
+      // 如果侧边栏已创建但被收起，点击小猫时重新显示
+      // if (uiManager && uiManager.sidebar && !uiManager.sidebar.classList.contains('visible')) {
+      //   uiManager.sidebar.classList.add('visible');
+      //   return; // 仅显示侧边栏，不切换动画或展开菜单
+      // }
 
-    //   // 在speaking和idle动画之间切换
-    //   currentAnimationType = currentAnimationType === 'speaking' ? 'idle' : 'speaking';
-    //   // 加载对应动画帧
-    //   frames = loadKittenFrames(currentAnimationType);
-    //   // 重置当前帧索引，确保从第一帧开始
-    //   currentFrame = 0;
-    // });
+      // 在speaking和idle动画之间切换
+      currentAnimationType = currentAnimationType === 'speaking' ? 'idle' : 'speaking';
+      // 加载对应动画帧
+      frames = loadKittenFrames(currentAnimationType);
+      // 重置当前帧索引，确保从第一帧开始
+       currentFrame = 0;
+    });
     
     function animateKitten() {
       kittenImg.src = frames[currentFrame];
