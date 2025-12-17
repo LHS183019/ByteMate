@@ -1,7 +1,7 @@
 console.log("OJ助手内容脚本已注入！");
 
 // 学习数据记录器
-class LearningTracker {
+window.LearningTracker = class LearningTracker {
   constructor() {
     this.sessionStartTime = Date.now();
     this.problemsAttempted = new Set();
@@ -1929,7 +1929,7 @@ class UIManager {
     }
 
     // 将解析逻辑拆分为可以对任意 Document 运行的函数（用于 fetch 回退解析）
-    function parseProblemFromDocument(doc, allowGenericPre = true) {
+    window.parseProblemFromDocument = function parseProblemFromDocument(doc, allowGenericPre = true) {
       const ctx = {
         title: '',
         statement: '',
@@ -1944,7 +1944,7 @@ class UIManager {
       };
 
       const pageTitle = doc.querySelector('#pageTitle h2') || doc.querySelector('.pageTitle h2') || doc.querySelector('h1');
-      if (pageTitle && pageTitle.innerText.trim()) ctx.title = pageTitle.innerText.trim();
+      if (pageTitle && (pageTitle.innerText || pageTitle.textContent || '').trim()) ctx.title = (pageTitle.innerText || pageTitle.textContent || '').trim();
       if (!ctx.title && doc.title) ctx.title = doc.title.replace(/\s*-\s*OpenJudge.*$/i, '').trim();
 
       const dl = doc.querySelector('dl.problem-content');
@@ -1953,7 +1953,7 @@ class UIManager {
         const samplesInputs = [];
         const samplesOutputs = [];
         dts.forEach(dt => {
-          const key = (dt.innerText || '').trim();
+          const key = (dt.innerText || dt.textContent || '').trim();
           const dd = dt.nextElementSibling;
           if (!dd) return;
           const text = (dd.innerText || dd.textContent || '').trim();
@@ -2261,8 +2261,15 @@ function getProblemContext() {
 
 })();
 
+// 导出类以便测试
 if (typeof window !== 'undefined') {
   window.UIManager = UIManager;
   window.LearningTracker = LearningTracker;
+}
+
+// 导出类以便测试（如果支持模块）
+if (typeof exports !== 'undefined') {
+  // 这是一个hack，为了让Jest能检测到覆盖率，我们需要让这个文件看起来像一个模块
+  // 但实际上我们不能在浏览器环境中使用module.exports
 }
 

@@ -4,6 +4,7 @@ jest.unstable_mockModule('../api/storage.js', () => ({
   StorageManager: {
     getItem: jest.fn(),
     setItem: jest.fn(),
+    removeItem: jest.fn(),
     setStorageType: jest.fn(),
   }
 }));
@@ -73,5 +74,94 @@ describe('Popup Tests', () => {
     dashboardBtn.click();
     expect(chrome.runtime.getURL).toHaveBeenCalledWith('dashboard/index.html');
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'dashboard/index.html' });
+  });
+
+  test('Problem Set button should open problemset', () => {
+    attachEventListeners();
+    const problemsetBtn = document.getElementById('problemset-btn');
+    
+    problemsetBtn.click();
+    expect(chrome.runtime.getURL).toHaveBeenCalledWith('problemset/index.html');
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'problemset/index.html' });
+  });
+
+  test('Toggle password button should switch input type', () => {
+    attachEventListeners();
+    const toggleBtn = document.getElementById('toggle-password-btn');
+    const apiKeyInput = document.getElementById('api-key-input');
+    
+    // Default is text (from innerHTML above, though usually password in real HTML)
+    apiKeyInput.type = 'password';
+    
+    // Click to show
+    toggleBtn.click();
+    expect(apiKeyInput.type).toBe('text');
+    expect(toggleBtn.textContent).toBe('🙈');
+    
+    // Click to hide
+    toggleBtn.click();
+    expect(apiKeyInput.type).toBe('password');
+    expect(toggleBtn.textContent).toBe('👁️');
+  });
+
+  test('Model select change should save immediately', async () => {
+    attachEventListeners();
+    const modelSelect = document.getElementById('model-select');
+    
+    modelSelect.value = 'qwen';
+    modelSelect.dispatchEvent(new Event('change'));
+    
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    expect(StorageManager.setItem).toHaveBeenCalledWith('bytemate_model', 'qwen');
+  });
+
+  test('Save settings with short API key should show error', async () => {
+    attachEventListeners();
+    const saveBtn = document.getElementById('save-btn');
+    const apiKeyInput = document.getElementById('api-key-input');
+    const statusMessage = document.getElementById('status-message');
+    
+    apiKeyInput.value = 'short';
+    saveBtn.click();
+    
+    expect(statusMessage.textContent).toContain('API Key 过短');
+    expect(statusMessage.className).toContain('status-error');
+    expect(StorageManager.setItem).not.toHaveBeenCalled();
+  });
+
+  test('Save settings with empty API key should remove it', async () => {
+    jest.unstable_mockModule('../api/storage.js', () => ({
+      StorageManager: {
+        getItem: jest.fn(),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        setStorageType: jest.fn(),
+      }
+    }));
+    // Re-import to get the mocked removeItem
+    const { StorageManager: SM } = await import('../api/storage.js');
+    
+    attachEventListeners();
+    const saveBtn = document.getElementById('save-btn');
+    const apiKeyInput = document.getElementById('api-key-input');
+    
+    apiKeyInput.value = '';
+    saveBtn.click();
+    
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    expect(SM.removeItem).toHaveBeenCalledWith('bytemate_api_key');
+  });
+
+  test('Help link should show info message', () => {
+    attachEventListeners();
+    const helpLink = document.getElementById('help-link');
+    const statusMessage = document.getElementById('status-message');
+    
+    helpLink.click();
+    
+    expect(statusMessage.textContent).toContain('帮助功能开发中');
+    expect(statusMessage.className).toContain('status-info');
   });
 });

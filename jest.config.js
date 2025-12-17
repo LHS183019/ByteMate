@@ -6,5 +6,17 @@ export default {
     '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$': '<rootDir>/tests/__mocks__/fileMock.js'
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-  testMatch: ['**/tests/**/*.test.js']
+  testMatch: ['**/tests/**/*.test.js'],
+  collectCoverage: true,
+  collectCoverageFrom: [
+    'api/**/*.js',
+    'background/**/*.js',
+    'content/**/*.js',
+    'dashboard/**/*.js',
+    'popup/**/*.js',
+    '!**/node_modules/**',
+    '!**/vendor/**'
+  ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html']
 };

@@ -12,7 +12,7 @@ const contentScriptCode = fs.readFileSync(contentScriptPath, 'utf8');
 describe('Content Script Tests', () => {
   let uiManager;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Setup DOM
     document.body.innerHTML = '';
     
@@ -49,8 +49,9 @@ describe('Content Script Tests', () => {
       }
     };
 
-    // Execute the script
-    window.eval(contentScriptCode);
+    // Execute the script by importing it (this allows coverage to work)
+    // We use a query parameter to bypass cache if needed, though not strictly necessary in Jest
+    await import('../content/content-script.js');
   });
 
   beforeEach(() => {
@@ -301,5 +302,218 @@ describe('Content Script Tests', () => {
     // Since isStreaming is false, feedback UI should appear at the end
     const feedbackBtn = uiManager.contentArea.querySelector('.oj-helper-feedback-btn');
     expect(feedbackBtn).toBeTruthy();
+  });
+
+  test('LearningTracker: checkForACStatus detects "Accept"', () => {
+    const tracker = new window.LearningTracker();
+    const sendMessageSpy = jest.spyOn(tracker, 'recordProblemSolved');
+    
+    // Create an element that matches the selector
+    const acElement = document.createElement('div');
+    acElement.className = 'judge-result';
+    acElement.textContent = 'Accept';
+    document.body.appendChild(acElement);
+    
+    tracker.checkForACStatus();
+    
+    expect(sendMessageSpy).toHaveBeenCalled();
+  });
+
+  test('LearningTracker: checkForACStatus detects "正确"', () => {
+    const tracker = new window.LearningTracker();
+    const sendMessageSpy = jest.spyOn(tracker, 'recordProblemSolved');
+    
+    const acElement = document.createElement('span');
+    acElement.className = 'status';
+    acElement.textContent = '正确';
+    document.body.appendChild(acElement);
+    
+    tracker.checkForACStatus();
+    
+    expect(sendMessageSpy).toHaveBeenCalled();
+  });
+
+  test('UIManager: showError displays message and copy button', () => {
+    const errorMsg = 'Something went wrong';
+    const prompt = 'This is the prompt';
+    const fullMsg = `${errorMsg}|||${prompt}`;
+    
+    uiManager.showError(fullMsg);
+    
+    const errorDiv = uiManager.contentArea.querySelector('.oj-helper-error');
+    expect(errorDiv).toBeTruthy();
+    expect(errorDiv.textContent).toContain(errorMsg);
+    
+    const copyBtn = uiManager.contentArea.querySelector('.oj-helper-copy-btn');
+    expect(copyBtn).toBeTruthy();
+    expect(copyBtn.getAttribute('data-prompt')).toBe(prompt);
+  });
+
+  test('UIManager: addCopyButtons adds buttons to code blocks', () => {
+    const container = document.createElement('div');
+    // Manually create structure matching what parseMarkdown produces
+    container.innerHTML = `
+      <div class="oj-helper-code-block"><pre><code>const a = 1;</code></pre></div>
+      <div class="oj-helper-code-block"><pre><code>const b = 2;</code></pre></div>
+    `;
+    
+    uiManager.addCopyButtons(container);
+    
+    const buttons = container.querySelectorAll('.oj-helper-copy-btn');
+    expect(buttons.length).toBe(2);
+  });
+
+  describe('UIManager: parseMarkdown', () => {
+    test('parses bold text', () => {
+      const input = 'This is **bold** text';
+      const output = uiManager.parseMarkdown(input);
+      expect(output).toContain('<strong>bold</strong>');
+    });
+
+    test('parses code blocks', () => {
+      const input = '```javascript\nconst a = 1;\n```';
+      const output = uiManager.parseMarkdown(input);
+      expect(output).toContain('<div class="oj-helper-code-block">');
+      expect(output).toContain('const a = 1;');
+    });
+
+    test('parses inline code', () => {
+      const input = 'Use `const` variable';
+      const output = uiManager.parseMarkdown(input);
+      expect(output).toContain('<code>const</code>');
+    });
+
+    test('parses unordered lists', () => {
+      const input = '- Item 1\n- Item 2';
+      const output = uiManager.parseMarkdown(input);
+      expect(output).toContain('<ul>');
+      expect(output).toContain('<li>Item 1</li>');
+      expect(output).toContain('<li>Item 2</li>');
+    });
+  });
+
+  describe('UIManager: getCurrentPageType', () => {
+    const originalLocation = window.location;
+
+    beforeAll(() => {
+      delete window.location;
+      window.location = { href: '' };
+    });
+
+    afterAll(() => {
+      window.location = originalLocation;
+    });
+
+    test('detects problem page via URL', () => {
+      document.body.innerHTML = '<div id="pageTitle">Problem 1001</div>';
+      window.location.href = 'http://localhost/problem/1001';
+      expect(uiManager.getCurrentPageType()).toBe('problem');
+    });
+
+    test('detects submit page via URL', () => {
+      window.location.href = 'http://localhost/submit/1001';
+      expect(uiManager.getCurrentPageType()).toBe('submit');
+    });
+
+    test('detects result page via URL', () => {
+      window.location.href = 'http://localhost/solution/12345';
+      expect(uiManager.getCurrentPageType()).toBe('result');
+    });
+
+    test('detects other page', () => {
+      document.body.innerHTML = '';
+      window.location.href = 'http://localhost/home';
+      expect(uiManager.getCurrentPageType()).toBe('other');
+    });
+  });
+
+  describe('LearningTracker', () => {
+    let tracker;
+    const originalLocation = window.location;
+
+    beforeAll(() => {
+      delete window.location;
+      window.location = { href: '' };
+    });
+
+    afterAll(() => {
+      window.location = originalLocation;
+    });
+
+    beforeEach(() => {
+      tracker = new window.LearningTracker();
+      // Mock sendMessage
+      global.chrome.runtime.sendMessage.mockClear();
+    });
+
+    test('extractProblemId from URL', () => {
+      window.location.href = 'http://localhost/problem/1001';
+      expect(tracker.extractProblemId()).toBe('1001');
+    });
+
+    test('extractProblemId from Title', () => {
+      window.location.href = 'http://localhost/unknown';
+      document.body.innerHTML = '<div id="pageTitle"><h2>1002: Title</h2></div>';
+      expect(tracker.extractProblemId()).toBe('1002');
+    });
+
+    test('recordProblemSolved sends message', async () => {
+      window.location.href = 'http://localhost/problem/1003';
+      await tracker.recordProblemSolved();
+      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'record_problem_solved',
+          problemId: '1003'
+        })
+      );
+    });
+    
+    test('recordAttempt sends message', async () => {
+      window.location.href = 'http://localhost/problem/1004';
+      await tracker.recordAttempt();
+      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'record_attempt',
+          problemId: '1004'
+        })
+      );
+    });
+  });
+
+  describe('parseProblemFromDocument', () => {
+    test('extracts title', () => {
+      const doc = document.implementation.createHTMLDocument();
+      doc.body.innerHTML = '<div id="pageTitle"><h2>1001: A+B Problem</h2></div>';
+      const result = window.parseProblemFromDocument(doc);
+      expect(result.title).toBe('1001: A+B Problem');
+    });
+
+    test('extracts statement', () => {
+      const doc = document.implementation.createHTMLDocument();
+      doc.body.innerHTML = `
+        <dl class="problem-content">
+          <dt>描述</dt>
+          <dd>Calculate A + B.</dd>
+        </dl>
+      `;
+      const result = window.parseProblemFromDocument(doc);
+      expect(result.statement).toBe('Calculate A + B.');
+    });
+
+    test('extracts samples', () => {
+      const doc = document.implementation.createHTMLDocument();
+      doc.body.innerHTML = `
+        <dl class="problem-content">
+          <dt>Sample Input</dt>
+          <dd><pre>1 2</pre></dd>
+          <dt>Sample Output</dt>
+          <dd><pre>3</pre></dd>
+        </dl>
+      `;
+      const result = window.parseProblemFromDocument(doc);
+      expect(result.samples).toHaveLength(1);
+      expect(result.samples[0].input).toBe('1 2');
+      expect(result.samples[0].output).toBe('3');
+    });
   });
 });
