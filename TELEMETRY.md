@@ -17,7 +17,11 @@
 ---
 
 ## 2. 埋点指标详解
-
+#### 公共参数 (Common Params)
+所有事件都会自动携带以下参数：
+*   `client_id`: 匿名客户端 ID
+*   `session_id`: 会话 ID
+*   `target_language`: 用户设置的目标编程语言 (`cpp` / `python`)
 ### 2.1 AI 功能使用 (AI Feature Usage)
 
 用于分析用户最常使用的功能以及模型的响应性能。

@@ -20,13 +20,20 @@
             <section class="settings-section">
                 <div class="section-title">
                     <span class="icon">🤖</span>
-                    <h2>模型设置</h2>
+                    <h2>生成设置</h2>
                 </div>
                 <div class="model-selector">
                     <label for="model-select">选择模型：</label>
                     <select id="model-select" class="select-input">
                         <option value="deepseek">DeepSeek</option>
                         <option value="qwen">Qwen (通义千问)</option>
+                    </select>
+                </div>
+                <div class="language-selector" style="margin-top: 10px;">
+                    <label for="language-select">目标语言：</label>
+                    <select id="language-select" class="select-input">
+                        <option value="cpp">C++</option>
+                        <option value="python">Python</option>
                     </select>
                 </div>
             </section>

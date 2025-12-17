@@ -20,6 +20,10 @@ describe('Popup Tests', () => {
         <option value="deepseek">DeepSeek</option>
         <option value="qwen">Qwen</option>
       </select>
+      <select id="language-select">
+        <option value="cpp">C++</option>
+        <option value="python">Python</option>
+      </select>
       <input id="api-key-input" />
       <button id="toggle-password-btn"></button>
       <button id="save-btn"></button>
@@ -32,17 +36,35 @@ describe('Popup Tests', () => {
     jest.clearAllMocks();
   });
 
-  test('loadSettings should load model and api key', async () => {
+  test('loadSettings should load model, language and api key', async () => {
     StorageManager.getItem.mockImplementation((key) => {
       if (key === 'bytemate_model') return Promise.resolve('deepseek');
       if (key === 'bytemate_api_key') return Promise.resolve('test-key');
+      if (key === 'bytemate_target_language') return Promise.resolve('python');
       return Promise.resolve(null);
     });
 
     await loadSettings();
 
     expect(document.getElementById('model-select').value).toBe('deepseek');
+    expect(document.getElementById('language-select').value).toBe('python');
     expect(document.getElementById('api-key-input').value).toBe('test-key');
+  });
+
+  test('Language select should save setting on change', async () => {
+    attachEventListeners();
+    const languageSelect = document.getElementById('language-select');
+    
+    languageSelect.value = 'python';
+    languageSelect.dispatchEvent(new Event('change'));
+    
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    expect(StorageManager.setItem).toHaveBeenCalledWith('bytemate_target_language', 'python');
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      action: 'update_config',
+      config: { targetLanguage: 'python' }
+    });
   });
 
   test('Save button should save settings', async () => {

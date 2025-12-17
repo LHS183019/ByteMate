@@ -108,7 +108,8 @@ describe('Background Service Tests', () => {
     expect(config.apiKey).toBe('sk-456');
   });
 
-  test('generatePrompt constructs prompt correctly', async () => {
+  test('generatePrompt constructs prompt correctly with target language', async () => {
+    bgService.appConfig.targetLanguage = 'python';
     const context = {
       feature: 'guide',
       title: 'Test Problem',
@@ -116,7 +117,7 @@ describe('Background Service Tests', () => {
       inputDescription: 'Input Desc',
       outputDescription: 'Output Desc',
       hint: 'Hint',
-      currentCode: 'int main() {}',
+      currentCode: 'print("hello")',
       samples: [{ input: '1', output: '2' }]
     };
 
@@ -124,8 +125,10 @@ describe('Background Service Tests', () => {
     
     expect(prompt).toContain('Test Problem');
     expect(prompt).toContain('Problem Statement');
-    expect(prompt).toContain('int main() {}');
-    expect(prompt).toContain('Mock Prompt Content'); // From mocked fetch
+    expect(prompt).toContain('print("hello")');
+    expect(prompt).toContain('```python'); // Check for python code block
+    expect(prompt).toContain('请使用 python 语言生成代码'); // Check for instruction
+    expect(prompt).toContain('Mock Prompt Content');
   });
 
   test('generatePrompt adds feedback instruction', async () => {
@@ -144,14 +147,15 @@ describe('Background Service Tests', () => {
       const sendResponse = jest.fn();
       const request = {
         action: 'update_config',
-        config: { model: 'openai' }
+        config: { model: 'openai', targetLanguage: 'python' }
       };
 
       // Mock storage get to return new values after update
       global.chrome.storage.local.get.mockImplementation((keys, callback) => {
         callback({
           bytemate_model: 'openai',
-          bytemate_api_key: 'test-key'
+          bytemate_api_key: 'test-key',
+          bytemate_target_language: 'python'
         });
       });
 
@@ -161,6 +165,7 @@ describe('Background Service Tests', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       expect(bgService.appConfig.model).toBe('openai');
+      expect(bgService.appConfig.targetLanguage).toBe('python');
       expect(sendResponse).toHaveBeenCalledWith({ ok: true, message: '配置已更新' });
     });
 
@@ -263,6 +268,7 @@ describe('Background Service Tests', () => {
     });
 
     test('copy_code updates lastCopyTime and sends telemetry', async () => {
+      bgService.appConfig.targetLanguage = 'python';
       const sendResponse = jest.fn();
       const request = { action: 'copy_code', data: { length: 100 } };
       
@@ -285,7 +291,9 @@ describe('Background Service Tests', () => {
       // Note: sendTelemetryEvent uses fetch
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('google-analytics'),
-        expect.anything()
+        expect.objectContaining({
+            body: expect.stringContaining('"target_language":"python"')
+        })
       );
     });
 

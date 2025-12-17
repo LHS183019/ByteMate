@@ -3,7 +3,8 @@ console.log('[Background] Service Worker started');
 // 存储键定义
 const STORAGE_KEYS = {
   MODEL: 'bytemate_model',
-  API_KEY: 'bytemate_api_key'
+  API_KEY: 'bytemate_api_key',
+  TARGET_LANGUAGE: 'bytemate_target_language'
 };
 
 // LLM 提供商配置
@@ -32,7 +33,8 @@ const problemCache = new Map();
 // 全局配置对象（缓存最新配置）
 let appConfig = {
   model: null,
-  apiKey: null
+  apiKey: null,
+  targetLanguage: 'cpp'
 };
 
 // 记录最后一次复制代码的时间
@@ -43,7 +45,8 @@ let appConfig = {
 // 建议仅在内部测试或受信任环境中使用。
 const DEFAULT_CONFIG = {
   model: 'deepseek',
-  apiKey: '' // 默认不提供API Key，让用户自己配置
+  apiKey: '', // 默认不提供API Key，让用户自己配置
+  targetLanguage: 'cpp'
 };
 
 // 工具函数：从local storage获取值
@@ -65,14 +68,17 @@ async function initializeConfig() {
     // 从local storage加载配置
     const storedModel = await getFromStorage(STORAGE_KEYS.MODEL);
     const storedApiKey = await getFromStorage(STORAGE_KEYS.API_KEY);
+    const storedTargetLanguage = await getFromStorage(STORAGE_KEYS.TARGET_LANGUAGE);
 
     // 使用存储的配置，如果不存在则使用默认配置
     appConfig.model = storedModel || DEFAULT_CONFIG.model;
     appConfig.apiKey = storedApiKey || DEFAULT_CONFIG.apiKey;
+    appConfig.targetLanguage = storedTargetLanguage || DEFAULT_CONFIG.targetLanguage;
     
     console.log('[Background] 配置初始化完成:', {
       model: appConfig.model,
       apiKey: appConfig.apiKey ? '******' + appConfig.apiKey.slice(-4) : null,
+      targetLanguage: appConfig.targetLanguage,
       storedModel,
       storedApiKey: storedApiKey ? '******' + storedApiKey.slice(-4) : null,
       usingDefaultKey: !storedApiKey,
@@ -173,7 +179,7 @@ async function generatePrompt(context) {
 提示: ${hint || '无'}
 
 当前用户代码:
-\`\`\`cpp
+\`\`\`${appConfig.targetLanguage || 'cpp'}
 ${currentCode || '// 用户还未提交代码'}
 \`\`\`
 
@@ -185,7 +191,7 @@ ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: 
     fullPrompt += `\n\n错误状态/信息:\n${error}\n`;
   }
 
-  fullPrompt += `\n请直接回复分析结果。`;
+  fullPrompt += `\n请直接回复分析结果。请使用 ${appConfig.targetLanguage || 'cpp'} 语言生成代码。`;
   console.log('[Background] Generated full prompt:', fullPrompt);
   return fullPrompt;
 }
@@ -232,6 +238,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 更新内存中的配置
     if (config.model) {
       appConfig.model = config.model;
+    }
+    if (config.targetLanguage) {
+      appConfig.targetLanguage = config.targetLanguage;
     }
     
     // 重新初始化配置以获取最新的API密钥
@@ -884,6 +893,7 @@ async function sendTelemetryEvent(eventName, params = {}) {
         name: eventName,
         params: {
           ...params,
+          target_language: appConfig.targetLanguage || 'cpp',
           session_id: Date.now().toString(), // 简单会话 ID
           engagement_time_msec: 100
         }

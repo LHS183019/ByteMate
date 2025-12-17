@@ -13,7 +13,8 @@ import { StorageManager } from '../api/storage.js';
 // ============ 存储键定义 ============
 const STORAGE_KEYS = {
   MODEL: 'bytemate_model',
-  API_KEY: 'bytemate_api_key'
+  API_KEY: 'bytemate_api_key',
+  TARGET_LANGUAGE: 'bytemate_target_language'
 };
 
 const MODELS = {
@@ -27,6 +28,7 @@ export let DOM = {};
 export function initDOM() {
   DOM = {
     modelSelect: document.getElementById('model-select'),
+    languageSelect: document.getElementById('language-select'),
     apiKeyInput: document.getElementById('api-key-input'),
     togglePasswordBtn: document.getElementById('toggle-password-btn'),
     saveBtn: document.getElementById('save-btn'),
@@ -60,6 +62,14 @@ export async function loadSettings() {
       DOM.modelSelect.value = model;
     }
 
+    // 加载目标语言
+    const targetLanguage = await StorageManager.getItem(STORAGE_KEYS.TARGET_LANGUAGE);
+    if (targetLanguage) {
+      DOM.languageSelect.value = targetLanguage;
+    } else {
+      DOM.languageSelect.value = 'cpp'; // 默认 C++
+    }
+
     // 加载 API Key
     const apiKey = await StorageManager.getItem(STORAGE_KEYS.API_KEY);
     if (apiKey) {
@@ -87,6 +97,26 @@ export function attachEventListeners() {
       showStatus('模型已切换', 'success');
     } catch (error) {
       console.error('保存模型选择失败:', error);
+      showStatus('保存失败', 'error');
+    }
+  });
+
+  // 语言选择变化时实时保存
+  DOM.languageSelect.addEventListener('change', async () => {
+    try {
+      await StorageManager.setStorageType('local');
+      const selectedLanguage = DOM.languageSelect.value;
+      await StorageManager.setItem(STORAGE_KEYS.TARGET_LANGUAGE, selectedLanguage);
+      console.log('目标语言已切换为:', selectedLanguage);
+      showStatus('目标语言已切换', 'success');
+      
+      // 通知 background 更新配置
+      chrome.runtime.sendMessage({ 
+        action: 'update_config', 
+        config: { targetLanguage: selectedLanguage } 
+      });
+    } catch (error) {
+      console.error('保存目标语言失败:', error);
       showStatus('保存失败', 'error');
     }
   });
