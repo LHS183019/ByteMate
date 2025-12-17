@@ -25,23 +25,28 @@ const MODELS = {
 };
 
 // ============ DOM 元素缓存 ============
-const DOM = {
-  modelSelect: document.getElementById('model-select'),
-  apiKeyInput: document.getElementById('api-key-input'),
-  togglePasswordBtn: document.getElementById('toggle-password-btn'),
-  saveBtn: document.getElementById('save-btn'),
-  dashboardBtn: document.getElementById('dashboard-btn'),
-  problemsetBtn: document.getElementById('problemset-btn'),
-  statusMessage: document.getElementById('status-message'),
-  solvedCount: document.getElementById('solved-count'),
-  helpedCount: document.getElementById('helped-count'),
-  tagsCount: document.getElementById('tags-count'),
-  helpLink: document.getElementById('help-link')
-};
+export let DOM = {};
+
+export function initDOM() {
+  DOM = {
+    modelSelect: document.getElementById('model-select'),
+    apiKeyInput: document.getElementById('api-key-input'),
+    togglePasswordBtn: document.getElementById('toggle-password-btn'),
+    saveBtn: document.getElementById('save-btn'),
+    dashboardBtn: document.getElementById('dashboard-btn'),
+    problemsetBtn: document.getElementById('problemset-btn'),
+    statusMessage: document.getElementById('status-message'),
+    solvedCount: document.getElementById('solved-count'),
+    helpedCount: document.getElementById('helped-count'),
+    tagsCount: document.getElementById('tags-count'),
+    helpLink: document.getElementById('help-link')
+  };
+}
 
 // ============ 初始化 ============
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Popup 已加载');
+  initDOM();
   await loadSettings();
   await loadTodayStats();
   attachEventListeners();
@@ -51,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 /**
  * 从浏览器存储加载已保存的设置
  */
-async function loadSettings() {
+export async function loadSettings() {
   try {
     // 设置使用local存储
     await StorageManager.setStorageType('local');
@@ -76,7 +81,7 @@ async function loadSettings() {
 /**
  * 加载并显示今日学习情况
  */
-async function loadTodayStats() {
+export async function loadTodayStats() {
   try {
     // 设置使用local存储
     await StorageManager.setStorageType('local');
@@ -116,7 +121,7 @@ async function loadTodayStats() {
 /**
  * 绑定所有事件监听器
  */
-function attachEventListeners() {
+export function attachEventListeners() {
   // 模型选择变化时实时保存
   DOM.modelSelect.addEventListener('change', async () => {
     try {

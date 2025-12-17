@@ -2177,3 +2177,9 @@ function getProblemContext() {
   }
 
 })();
+
+if (typeof window !== 'undefined') {
+  window.UIManager = UIManager;
+  window.LearningTracker = LearningTracker;
+}
+

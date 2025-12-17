@@ -41,23 +41,45 @@ ByteMate 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 
 
 ### 方式二：打包安装（推荐分享）
 
-1.  在终端运行打包脚本：
-    ```bash
-    ./package_extension.sh
-    ```
-2.  脚本会在根目录生成 `ByteMate_Extension.zip`。
-3.  将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
-
-你可能会遇到的问题：
-
-1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
-
-2. 运行时遇到 `syntax error: unexpected end of file`： 可能是在 Windows/ MacOS 中编辑的脚本可能包含不兼容的换行符（CRLF），导致 Linux 无法正确解析，使用vim修改格式。
-```bash
-vim package_extension.sh
-:set ff=unix
-:wq
+**Windows 用户:**
+在 PowerShell 中运行：
+```powershell
+.\package_extension.ps1
 ```
+
+**Mac / Linux 用户:**
+在终端运行：
+```bash
+./package_extension.sh
+```
+
+脚本会在根目录生成 `ByteMate_Extension.zip`。将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
+
+> **Mac/Linux 用户提示**:
+> 1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
+> 2. 运行时遇到 `syntax error: unexpected end of file`： 可能是在 Windows 中编辑的脚本包含不兼容的换行符（CRLF），请使用 `vim` 修改格式：
+>    ```bash
+>    vim package_extension.sh
+>    :set ff=unix
+>    :wq
+>    ```
+
+## 💻 开发环境配置（仅开发者需要）
+
+> **注意**：普通用户**不需要**安装 Node.js，直接加载插件即可使用。以下步骤仅适用于需要运行单元测试或参与开发的贡献者。
+
+本项目支持完整的单元测试（基于 Jest + JSDOM），且支持跨平台开发。
+
+1.  **环境要求**：请确保已安装 [Node.js](https://nodejs.org/) (推荐 v18+)。
+2.  **安装依赖**：
+    ```bash
+    npm install
+    ```
+3.  **运行测试**：
+    ```bash
+    npm test
+    ```
+    测试覆盖了 Popup 设置逻辑、侧边栏交互以及数据统计功能。
 
 ---
 
