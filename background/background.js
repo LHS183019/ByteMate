@@ -256,6 +256,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // 处理用户反馈消息
+  if (request.action === 'submit_feedback') {
+    const { text } = request;
+    console.log('[Background] 收到用户反馈:', text);
+    
+    sendTelemetryEvent('general_feedback', {
+      feedback_text: text
+    }).then(() => {
+      sendResponse({ ok: true });
+    }).catch(error => {
+      console.error('发送反馈遥测失败:', error);
+      sendResponse({ ok: false, error: error.message });
+    });
+    
+    return true;
+  }
+
   if(request.action === 'submit-result') {
     const {data} = request;
     console.log('[Background] Received submit-result message:', JSON.stringify(data));

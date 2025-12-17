@@ -680,6 +680,49 @@ function setupEventListeners() {
       }
     });
   }
+
+  // 反馈提交按钮
+  const submitFeedbackBtn = document.getElementById('submit-feedback-btn');
+  if (submitFeedbackBtn) {
+    submitFeedbackBtn.addEventListener('click', async () => {
+      const feedbackText = document.getElementById('feedback-text').value.trim();
+      if (!feedbackText) {
+        alert('请输入反馈内容');
+        return;
+      }
+
+      try {
+        // 发送反馈到后台
+        await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({
+            action: 'submit_feedback',
+            text: feedbackText
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(chrome.runtime.lastError);
+            } else {
+              resolve(response);
+            }
+          });
+        });
+
+        // 显示成功消息
+        document.querySelector('.feedback-form').style.display = 'none';
+        document.getElementById('feedback-success-msg').style.display = 'block';
+        
+        // 3秒后恢复表单（可选）
+        setTimeout(() => {
+          document.getElementById('feedback-text').value = '';
+          document.querySelector('.feedback-form').style.display = 'flex';
+          document.getElementById('feedback-success-msg').style.display = 'none';
+        }, 3000);
+
+      } catch (error) {
+        console.error('提交反馈失败:', error);
+        alert('提交反馈失败，请稍后重试');
+      }
+    });
+  }
 }
 
 /**
