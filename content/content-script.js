@@ -1503,20 +1503,9 @@ class UIManager {
     let currentFrame = 0;
     
     // 添加点击事件监听器，在speaking和idle动画之间来回切换
-    main.addEventListener('click', function() {
-      // 如果侧边栏已创建但被收起，点击小猫时重新显示
-      // if (uiManager && uiManager.sidebar && !uiManager.sidebar.classList.contains('visible')) {
-      //   uiManager.sidebar.classList.add('visible');
-      //   return; // 仅显示侧边栏，不切换动画或展开菜单
-      // }
-
-      // 在speaking和idle动画之间切换
-      currentAnimationType = currentAnimationType === 'speaking' ? 'idle' : 'speaking';
-      // 加载对应动画帧
-      frames = loadKittenFrames(currentAnimationType);
-      // 重置当前帧索引，确保从第一帧开始
-       currentFrame = 0;
-    });
+    // main.addEventListener('click', function() {
+      // 逻辑已移至 setExpanded 中统一管理
+    // });
     
     function animateKitten() {
       kittenImg.src = frames[currentFrame];
@@ -1548,12 +1537,22 @@ class UIManager {
     const pageType = detectPageType();
     console.log('[Content-Script] Detected page type:', pageType);
     
+    // 定义功能列表
+    const features = [
+      { key: "guide", label: "📚 问题引导" },
+      { key: "hint", label: "💡 思路提示" },
+      { key: "fix", label: "🔧 代码纠错" },
+      { key: "recommend", label: "📖 知识推荐" },
+      { key: "chat", label: "💬 伙伴对话" }, // 新增伙伴对话功能
+    ];
+    
     // 根据页面类型过滤可用的功能
     const availableFeatures = features.filter((f) => {
       if (f.key === 'guide') return pageType === 'problem'; // 问题引导仅能在题目界面触发
       if (f.key === 'hint') return pageType === 'submit';   // 思路提示仅能在提交界面触发 (原 idea 对应 hint)
       if (f.key === 'fix') return pageType === 'result';    // 代码纠错仅能在提交结果界面触发
       if (f.key === 'recommend') return true;               // 知识推荐在任何页面都可用
+      if (f.key === 'chat') return true;                    // 伙伴对话在任何页面都可用
       return false; 
     });
 
@@ -1564,17 +1563,11 @@ class UIManager {
       b.type = "button";
       b.tabIndex = 0;
       b.dataset.key = f.key;
-      b.innerText = f.label;
+      b.textContent = f.label;
       b.setAttribute("role", "button");
       b.setAttribute("aria-label", f.label);
       b.addEventListener("click", (e) => {
         e.stopPropagation();
-        // 切换回idle动画
-        currentAnimationType = 'idle';
-        // 加载idle动画帧
-        frames = loadKittenFrames(currentAnimationType);
-        // 重置当前帧索引，确保从第一帧开始
-        currentFrame = 0;
         // 关闭菜单
         setExpanded(false);
         // 执行按钮功能
@@ -1598,9 +1591,24 @@ class UIManager {
       if (expanded) {
         menu.classList.add("expanded");
         main.setAttribute("aria-expanded", "true");
+        
+        // 展开时总是切换到 speaking
+        if (currentAnimationType !== 'speaking') {
+            currentAnimationType = 'speaking';
+            frames = loadKittenFrames(currentAnimationType);
+            currentFrame = 0;
+        }
       } else {
         menu.classList.remove("expanded");
         main.setAttribute("aria-expanded", "false");
+        
+        // 收起时，如果没有气泡，则切换回 idle
+        const bubble = document.getElementById('oj-helper-bubble');
+        if (!bubble && currentAnimationType !== 'idle') {
+            currentAnimationType = 'idle';
+            frames = loadKittenFrames(currentAnimationType);
+            currentFrame = 0;
+        }
       }
     }
 
@@ -1614,12 +1622,6 @@ class UIManager {
     document.addEventListener("click", () => {
       if (expanded) {
         setExpanded(false);
-        // 切换回idle动画
-        currentAnimationType = 'idle';
-        // 加载idle动画帧
-        frames = loadKittenFrames(currentAnimationType);
-        // 重置当前帧索引，确保从第一帧开始
-        currentFrame = 0;
       }
     });
     
@@ -1801,9 +1803,85 @@ class UIManager {
       return errorInfo.trim();
     }
 
+    // 显示小猫气泡
+    function showPetBubble() {
+      const messages = [
+        "辛苦了喵~",
+        "太棒了！",
+        "加油加油！",
+        "你写代码的样子真帅！",
+        "休息一下吧喵~",
+        "相信自己，你可以的！",
+        "今天也要元气满满哦！",
+        "代码写得真漂亮！",
+        "遇到困难也不要放弃喵~",
+        "我在陪着你呢！"
+      ];
+      
+      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+      
+      // 移除旧的气泡
+      const oldBubble = document.getElementById('oj-helper-bubble');
+      if (oldBubble) oldBubble.remove();
+      
+      const bubble = document.createElement('div');
+      bubble.id = 'oj-helper-bubble';
+      bubble.className = 'oj-helper-bubble';
+      bubble.textContent = randomMsg;
+      
+      // 将气泡添加到小猫容器中
+      const btn = document.getElementById('oj-helper-btn');
+      if (btn) {
+        btn.appendChild(bubble);
+        
+        // 切换到说话动画
+        if (typeof currentAnimationType !== 'undefined' && currentAnimationType !== 'speaking') {
+          currentAnimationType = 'speaking';
+          frames = loadKittenFrames(currentAnimationType);
+          currentFrame = 0;
+        }
+        
+        // 3秒后消失
+        setTimeout(() => {
+          bubble.classList.add('fade-out');
+          setTimeout(() => {
+            if (bubble.parentNode) bubble.remove();
+            // 恢复idle动画
+            if (typeof currentAnimationType !== 'undefined') {
+              // 只有在菜单未展开时才恢复 idle
+              if (!expanded) {
+                  currentAnimationType = 'idle';
+                  frames = loadKittenFrames(currentAnimationType);
+                  currentFrame = 0;
+              }
+            }
+          }, 500);
+        }, 3000);
+      }
+    }
+
     // 点击动作时的处理
     function onActionClick(key, forceReload = false) {
       console.log("AI 助手 action:", key);
+      
+      // 处理伙伴对话功能
+      if (key === 'chat') {
+        showPetBubble();
+        // 记录遥测事件
+        try {
+          chrome.runtime.sendMessage({
+            action: 'telemetry_event',
+            eventName: 'ai_feature_start',
+            params: {
+              feature: 'chat',
+              model: 'none'
+            }
+          });
+        } catch (e) {
+          console.error('Telemetry error:', e);
+        }
+        return;
+      }
       
       loadUIManager().then(async () => {
         // 如果侧边栏已存在且功能类型一致，且不是强制刷新，直接显示而不重新加载

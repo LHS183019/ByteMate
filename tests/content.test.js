@@ -172,7 +172,7 @@ describe('Content Script Tests', () => {
     const guideBtn = document.querySelector('button[data-key="guide"]');
     expect(guideBtn).toBeTruthy();
     // JSDOM innerText/textContent handling can be tricky
-    expect(guideBtn.textContent || guideBtn.innerText).toBe('问题引导');
+    expect(guideBtn.textContent || guideBtn.innerText).toBe('📚 问题引导');
 
     // Check that "hint" button (Idea Hint) is NOT present (it's for submit page)
     const hintBtn = document.querySelector('button[data-key="hint"]');
@@ -189,7 +189,7 @@ describe('Content Script Tests', () => {
     // Check for "hint" button
     const hintBtn2 = document.querySelector('button[data-key="hint"]');
     expect(hintBtn2).toBeTruthy();
-    expect(hintBtn2.textContent || hintBtn2.innerText).toBe('思路提示');
+    expect(hintBtn2.textContent || hintBtn2.innerText).toBe('💡 思路提示');
   });
 
   test('Menu: Clicking action button triggers API request', async () => {
@@ -514,6 +514,79 @@ describe('Content Script Tests', () => {
       expect(result.samples).toHaveLength(1);
       expect(result.samples[0].input).toBe('1 2');
       expect(result.samples[0].output).toBe('3');
+    });
+  });
+
+  describe('Partner Chat Feature', () => {
+    beforeEach(() => {
+      document.body.innerHTML = '';
+      // Mock window.location
+      delete window.location;
+      window.location = { href: 'http://localhost/problem/1', origin: 'http://localhost', pathname: '/problem/1' };
+      
+      // Setup basic DOM for the menu
+      const btn = document.createElement('div');
+      btn.id = 'oj-helper-btn';
+      document.body.appendChild(btn);
+    });
+
+    test('Chat button exists in menu', () => {
+      if (window._test_createMenu) {
+        window._test_createMenu();
+      } else {
+        console.warn('window._test_createMenu is not available');
+        return;
+      }
+      
+      const chatBtn = document.querySelector('button[data-key="chat"]');
+      expect(chatBtn).toBeTruthy();
+      expect(chatBtn.textContent).toContain('伙伴对话');
+    });
+
+    test('Clicking chat button shows bubble and sends telemetry', () => {
+      if (window._test_createMenu) {
+        window._test_createMenu();
+      }
+      
+      const chatBtn = document.querySelector('button[data-key="chat"]');
+      chatBtn.click();
+      
+      // Check bubble creation
+      const bubble = document.getElementById('oj-helper-bubble');
+      expect(bubble).toBeTruthy();
+      expect(bubble.textContent).toBeTruthy();
+      expect(bubble.className).toContain('oj-helper-bubble');
+      
+      // Check telemetry
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'telemetry_event',
+          eventName: 'ai_feature_start',
+          params: expect.objectContaining({
+            feature: 'chat',
+            model: 'none'
+          })
+        })
+      );
+    });
+
+    test('Bubble disappears after timeout', () => {
+      if (window._test_createMenu) {
+        window._test_createMenu();
+      }
+      
+      const chatBtn = document.querySelector('button[data-key="chat"]');
+      chatBtn.click();
+      
+      const bubble = document.getElementById('oj-helper-bubble');
+      expect(bubble).toBeTruthy();
+      
+      // Fast-forward time
+      jest.advanceTimersByTime(3000); // Wait for fade-out start
+      expect(bubble.classList.contains('fade-out')).toBe(true);
+      
+      jest.advanceTimersByTime(500); // Wait for removal
+      expect(document.getElementById('oj-helper-bubble')).toBeNull();
     });
   });
 });
