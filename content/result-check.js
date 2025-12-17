@@ -15,7 +15,7 @@ function checkResult() {
             return;
         }
         
-        const result = linkElement.text;
+        const result = linkElement.text.trim();
         console.log(`[ResultCheck] result: ${result}`);
 
         const info = document.getElementsByClassName("compile-info")[0];
@@ -30,10 +30,10 @@ function checkResult() {
             return;
         }
 
-        const praticeId = infoItems[1].textContent;
+        const praticeId = infoItems[1].textContent.trim();
         console.log(`[ResultCheck] pratice_id: ${praticeId}`);
         
-        const time = infoItems[infoItems.length-1].textContent;
+        const time = infoItems[infoItems.length-1].textContent.trim();
         console.log(`[ResultCheck] time: ${time}`);
 
         // 创建一个新的 Date 对象

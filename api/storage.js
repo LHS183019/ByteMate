@@ -321,7 +321,7 @@ class StorageManager {
     }
 
     // 更新今日完成数
-    await this.addTodayCompletedProblem();
+    await this.addTodayCompletedProblem(problemId);
 
     return stats;
   }
@@ -344,6 +344,7 @@ class StorageManager {
       return {
         date: today,
         completedCount: 0,
+        completedProblems: [],    // 存储今日已完成的题目ID，用于去重
         duration: 0,              // 秒
         tagsLearned: [],
         startTime: Date.now(),
@@ -352,9 +353,24 @@ class StorageManager {
     return stats;
   }
 
-  async addTodayCompletedProblem() {
+  async addTodayCompletedProblem(problemId) {
     const today = this.getTodayKey();
     const stats = await this.getTodayStats();
+    
+    // 确保 completedProblems 数组存在
+    if (!stats.completedProblems) {
+      stats.completedProblems = [];
+    }
+
+    // 如果提供了 problemId，检查是否已存在
+    if (problemId) {
+      // 如果今日已经完成过该题目，则不增加计数
+      if (stats.completedProblems.includes(problemId)) {
+        return stats;
+      }
+      stats.completedProblems.push(problemId);
+    }
+    
     stats.completedCount += 1;
     await this.localStorage.set(today, stats);
     return stats;

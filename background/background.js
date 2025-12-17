@@ -267,7 +267,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
 
     // 如果是 Accepted，记录到每日统计
-    if (result === 'Accepted') {
+    // 宽松匹配：包含 "Accept", "AC", "正确" 均视为通过
+    const isAccepted = result === 'Accepted' || 
+                       result.includes('Accept') || 
+                       result === 'AC' || 
+                       result.includes('正确');
+
+    if (isAccepted) {
       recordProblemSolved(praticeId, Date.now()).catch(err => {
         console.error('[Background] Failed to record problem solved from submit-result:', err);
       });
@@ -277,7 +283,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       let problemStats = storageData.problemStats || {};
       if(praticeId in problemStats) {
         console.log(`${praticeId} previous result: ${problemStats[praticeId].accepted}`);
-        if(!problemStats[praticeId].accepted && result === "Accepted") {
+        if(!problemStats[praticeId].accepted && isAccepted) {
           problemStats[praticeId].accepted = true;
         }
       } else {
@@ -707,13 +713,29 @@ async function recordProblemSolved(problemId, timestamp) {
     const todayStats = result[todayKey] || {
       date: today,
       completedCount: 0,
+      completedProblems: [],
       duration: 0,
       tagsLearned: [],
       startTime: timestamp,
     };
     
-    // 增加完成题目数
+    // 确保 completedProblems 数组存在
+    if (!todayStats.completedProblems) {
+      todayStats.completedProblems = [];
+    }
+
+    // 检查是否已存在
+    if (problemId) {
+      if (todayStats.completedProblems.includes(problemId)) {
+        // 已经记录过，不重复计数
+        return;
+      }
+      todayStats.completedProblems.push(problemId);
       todayStats.completedCount += 1;
+    } else {
+      // 兼容旧逻辑
+      todayStats.completedCount += 1;
+    }
       
       // 保存更新后的统计
       await new Promise((resolve) => {

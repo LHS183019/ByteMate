@@ -8,7 +8,7 @@ jest.unstable_mockModule('../api/storage.js', () => ({
   }
 }));
 
-const { loadSettings, loadTodayStats, attachEventListeners, initDOM } = await import('../popup/popup.js');
+const { loadSettings, attachEventListeners, initDOM } = await import('../popup/popup.js');
 const { StorageManager } = await import('../api/storage.js');
 
 describe('Popup Tests', () => {
@@ -25,9 +25,6 @@ describe('Popup Tests', () => {
       <button id="dashboard-btn"></button>
       <button id="problemset-btn"></button>
       <div id="status-message"></div>
-      <span id="solved-count"></span>
-      <span id="helped-count"></span>
-      <span id="tags-count"></span>
       <a id="help-link"></a>
     `;
     initDOM();
@@ -45,21 +42,6 @@ describe('Popup Tests', () => {
 
     expect(document.getElementById('model-select').value).toBe('deepseek');
     expect(document.getElementById('api-key-input').value).toBe('test-key');
-  });
-
-  test('loadTodayStats should display stats', async () => {
-    const today = new Date().toISOString().split('T')[0];
-    StorageManager.getItem.mockImplementation((key) => {
-      if (key === 'bytemate_daily_stats') return Promise.resolve({ solved: 5, helped: 3, tags: 2 });
-      if (key === 'bytemate_last_reset') return Promise.resolve(today);
-      return Promise.resolve(null);
-    });
-
-    await loadTodayStats();
-
-    expect(document.getElementById('solved-count').textContent).toBe('5');
-    expect(document.getElementById('helped-count').textContent).toBe('3');
-    expect(document.getElementById('tags-count').textContent).toBe('2');
   });
 
   test('Save button should save settings', async () => {
@@ -88,11 +70,8 @@ describe('Popup Tests', () => {
     attachEventListeners();
     const dashboardBtn = document.getElementById('dashboard-btn');
     
-    // Mock chrome.tabs.query to return empty or simulate failure to force fallback or just check calls
-    // openDashboard calls tryOpenInCurrentTab
-    // Let's just check if it calls getURL
-    
     dashboardBtn.click();
     expect(chrome.runtime.getURL).toHaveBeenCalledWith('dashboard/index.html');
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'dashboard/index.html' });
   });
 });

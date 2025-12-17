@@ -261,6 +261,36 @@ function createFallbackStorage() {
       }
       
       console.log('✅ 测试数据已添加（包含最近7天数据）');
+    },
+
+    async clearAll() {
+      // 清除 localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(STORAGE_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // 清除 Chrome storage (仅清除 oj_ 开头的键，保留 API Key 等设置)
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        try {
+          const allData = await new Promise((resolve) => {
+            chrome.storage.local.get(null, resolve);
+          });
+          
+          const keysToRemove = Object.keys(allData).filter(key => key.startsWith(STORAGE_PREFIX));
+          
+          if (keysToRemove.length > 0) {
+            await new Promise((resolve) => {
+              chrome.storage.local.remove(keysToRemove, resolve);
+            });
+            console.log('✅ Chrome存储已清理:', keysToRemove.length, '项');
+          }
+        } catch (error) {
+          console.error('清理Chrome存储失败:', error);
+        }
+      }
+      console.log('✅ 仪表板数据已清除 (保留设置)');
     }
   };
 }
@@ -300,14 +330,6 @@ async function initDashboard() {
     if (!hasData) {
       const localData = localStorage.getItem(todayKey);
       hasData = !!localData;
-    }
-    
-    // 如果没有数据，生成测试数据
-    if (!hasData) {
-      console.log('⚠️ 没有发现学习数据，生成测试数据...');
-      await storage.addTestData();
-    } else {
-      console.log('✅ 发现已有学习数据');
     }
     
     // 加载所有数据
@@ -627,6 +649,22 @@ function setupEventListeners() {
       await loadAllData();
       showLoading(false);
       console.log('✅ 数据刷新完成');
+    });
+  }
+
+  // 重置数据按钮
+  const resetBtn = document.getElementById('reset-data-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', async () => {
+      if (confirm('⚠️ 确定要清空所有数据吗？\n此操作将删除所有学习记录、宠物状态和设置，且无法恢复！')) {
+        console.log('🗑️ 正在重置数据...');
+        showLoading(true);
+        await storage.clearAll();
+        // 重新初始化存储结构
+        await storage.init();
+        // 重新加载页面以重置状态
+        window.location.reload();
+      }
     });
   }
   

@@ -13,9 +13,7 @@ import { StorageManager } from '../api/storage.js';
 // ============ 存储键定义 ============
 const STORAGE_KEYS = {
   MODEL: 'bytemate_model',
-  API_KEY: 'bytemate_api_key',
-  DAILY_STATS: 'bytemate_daily_stats',
-  LAST_RESET: 'bytemate_last_reset'
+  API_KEY: 'bytemate_api_key'
 };
 
 const MODELS = {
@@ -36,9 +34,6 @@ export function initDOM() {
     dashboardBtn: document.getElementById('dashboard-btn'),
     problemsetBtn: document.getElementById('problemset-btn'),
     statusMessage: document.getElementById('status-message'),
-    solvedCount: document.getElementById('solved-count'),
-    helpedCount: document.getElementById('helped-count'),
-    tagsCount: document.getElementById('tags-count'),
     helpLink: document.getElementById('help-link')
   };
 }
@@ -48,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('Popup 已加载');
   initDOM();
   await loadSettings();
-  await loadTodayStats();
   attachEventListeners();
 });
 
@@ -74,46 +68,6 @@ export async function loadSettings() {
     }
   } catch (error) {
     console.error('加载设置失败:', error);
-  }
-}
-
-// ============ 加载今日统计 ============
-/**
- * 加载并显示今日学习情况
- */
-export async function loadTodayStats() {
-  try {
-    // 设置使用local存储
-    await StorageManager.setStorageType('local');
-    
-    const today = new Date().toISOString().split('T')[0];
-    
-    // 获取统计数据
-    const stats = await StorageManager.getItem(STORAGE_KEYS.DAILY_STATS) || {};
-    const lastReset = await StorageManager.getItem(STORAGE_KEYS.LAST_RESET);
-
-    // 如果是新的一天，重置统计数据
-    if (lastReset !== today) {
-      const newStats = {
-        date: today,
-        solved: 0,
-        helped: 0,
-        tags: 0
-      };
-      await StorageManager.setItem(STORAGE_KEYS.DAILY_STATS, newStats);
-      await StorageManager.setItem(STORAGE_KEYS.LAST_RESET, today);
-      // 更新 UI
-      DOM.solvedCount.textContent = 0;
-      DOM.helpedCount.textContent = 0;
-      DOM.tagsCount.textContent = 0;
-    } else {
-      // 更新 UI
-      DOM.solvedCount.textContent = stats.solved || 0;
-      DOM.helpedCount.textContent = stats.helped || 0;
-      DOM.tagsCount.textContent = stats.tags || 0;
-    }
-  } catch (error) {
-    console.error('加载统计数据失败:', error);
   }
 }
 
@@ -221,81 +175,13 @@ async function saveSettings() {
  */
 function openDashboard() {
   const dashboardUrl = chrome.runtime.getURL('dashboard/index.html');
-  // 优先：在当前活动标签页内直接跳转
-  tryOpenInCurrentTab(dashboardUrl, (ok) => {
-    if (ok) {
-      showStatus('正在当前页打开仪表板...', 'info');
-      return;
-    }
-    // 回退1：让 background 处理（若已实现）
-    try {
-      chrome.runtime.sendMessage(
-        { action: 'open_url', url: dashboardUrl, open_mode: 'current' },
-        (response) => {
-          if (chrome.runtime.lastError || !(response && response.ok)) {
-            console.warn('background 未能处理，改为新标签页');
-            // 回退2：新建标签页
-            tryOpenTabDirect(dashboardUrl);
-          } else {
-            showStatus('正在打开仪表板...', 'info');
-          }
-        }
-      );
-    } catch (e) {
-      console.warn('发送给 background 失败，改为新标签页');
-      tryOpenTabDirect(dashboardUrl);
-    }
-  });
+  chrome.tabs.create({ url: dashboardUrl });
 }
 
 function openProblemSet() {
   // 在新标签页打开题库页面
   const problemsetUrl = chrome.runtime.getURL("problemset/index.html");
   chrome.tabs.create({ url: problemsetUrl });
-}
-
-function tryOpenInCurrentTab(url, cb) {
-  try {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.warn('tabs.query 失败:', chrome.runtime.lastError.message);
-        cb(false);
-        return;
-      }
-      const activeTab = tabs && tabs[0];
-      if (!activeTab || !activeTab.id) {
-        cb(false);
-        return;
-      }
-      chrome.tabs.update(activeTab.id, { url }, () => {
-        if (chrome.runtime.lastError) {
-          console.warn('tabs.update 失败:', chrome.runtime.lastError.message);
-          cb(false);
-        } else {
-          cb(true);
-        }
-      });
-    });
-  } catch (e) {
-    console.warn('tryOpenInCurrentTab 异常:', e);
-    cb(false);
-  }
-}
-
-function tryOpenTabDirect(url) {
-  try {
-    chrome.tabs.create({ url }, () => {
-      if (chrome.runtime.lastError) {
-        console.error('直接打开失败:', chrome.runtime.lastError.message);
-        showStatus('打开仪表板失败', 'error');
-      } else {
-        showStatus('正在打开仪表板...', 'info');
-      }
-    });
-  } catch (e) {
-    console.error('tabs.create 异常:', e);
-    showStatus('打开仪表板失败', 'error');
-  }
 }
 
 // ============ 通知后台脚本 ============
@@ -347,60 +233,3 @@ async function getSettings() {
   }
 }
 
-/**
- * 更新今日统计数据
- * @param {string} statType - 统计类型 ('solved', 'helped', 'tags')
- */
-async function updateDailyStat(statType) {
-  try {
-    // 设置使用local存储
-    await StorageManager.setStorageType('local');
-    
-    const today = new Date().toISOString().split('T')[0];
-    
-    // 获取统计数据
-    let stats = await StorageManager.getItem(STORAGE_KEYS.DAILY_STATS) || {
-      date: today,
-      solved: 0,
-      helped: 0,
-      tags: 0
-    };
-
-    // 检查是否是新的一天
-    const lastReset = await StorageManager.getItem(STORAGE_KEYS.LAST_RESET);
-    if (lastReset !== today) {
-      stats = {
-        date: today,
-        solved: 0,
-        helped: 0,
-        tags: 0
-      };
-    }
-
-    // 增加指定的统计数据
-    if (stats[statType] !== undefined) {
-      stats[statType]++;
-    }
-
-    // 保存更新
-    await StorageManager.setItem(STORAGE_KEYS.DAILY_STATS, stats);
-    await StorageManager.setItem(STORAGE_KEYS.LAST_RESET, today);
-    
-    console.log(`统计已更新: ${statType} = ${stats[statType]}`);
-  } catch (error) {
-    console.error('更新统计数据失败:', error);
-  }
-}
-
-// ============ 监听来自 content-script 的消息 ============
-/**
- * 接收来自 content-script 的消息以更新统计数据
- */
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'update_stat') {
-    updateDailyStat(request.statType);
-    // 重新加载统计数据以显示更新后的值
-    loadTodayStats();
-    sendResponse({ ok: true });
-  }
-});
