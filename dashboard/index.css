@@ -57,6 +57,19 @@ body {
 	gap: 0.5rem;
 }
 
+@media (max-width: 768px) {
+	.header-actions {
+		position: static;
+		justify-content: center;
+		margin-top: 1rem;
+		width: 100%;
+	}
+	
+	.dashboard-header {
+		padding: 1.5rem 1rem;
+	}
+}
+
 .refresh-btn {
 	background: rgba(255, 255, 255, 0.2);
 	color: white;

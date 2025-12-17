@@ -6,147 +6,8 @@
 // ==================== 全局图表实例 ====================
 
 let chartInstances = {
-  trendChart: null,
   knowledgeChart: null,
 };
-
-// ==================== 趋势图表 ====================
-
-/**
- * 创建或更新趋势图表
- * 显示最近 7 天的完成题目数和学习时长
- */
-function initTrendChart(data) {
-  const ctx = document.getElementById('trendChart');
-  if (!ctx) {
-    console.warn('趋势图表容器不存在');
-    return;
-  }
-
-  // 销毁已存在的图表
-  if (chartInstances.trendChart) {
-    chartInstances.trendChart.destroy();
-  }
-
-  const dates = data.map((d) => d.date.split('-')[2]); // 只显示日期
-  const completed = data.map((d) => d.completedCount);
-  const hours = data.map((d) => Math.round((d.duration / 3600) * 10) / 10); // 转换为小时
-
-  chartInstances.trendChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: dates.map((d) => `${d}日`),
-      datasets: [
-        {
-          label: '完成题目数',
-          data: completed,
-          borderColor: '#6366f1',
-          backgroundColor: 'rgba(99, 102, 241, 0.1)',
-          borderWidth: 2.5,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 5,
-          pointBackgroundColor: '#6366f1',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          yAxisID: 'y',
-        },
-        {
-          label: '学习时长 (小时)',
-          data: hours,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          borderWidth: 2.5,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 5,
-          pointBackgroundColor: '#10b981',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          yAxisID: 'y1',
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false,
-      },
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: {
-            font: {
-              size: 12,
-            },
-            padding: 15,
-            usePointStyle: true,
-          },
-        },
-        tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          padding: 12,
-          titleFont: {
-            size: 12,
-          },
-          bodyFont: {
-            size: 11,
-          },
-          cornerRadius: 4,
-          callbacks: {
-            title: (context) => `${context[0].label}`,
-            label: (context) => {
-              let label = context.dataset.label || '';
-              if (label) label += ': ';
-              label += context.parsed.y;
-              if (context.dataset.label === '学习时长 (小时)') {
-                label += ' h';
-              }
-              return label;
-            },
-          },
-        },
-      },
-      scales: {
-        y: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: {
-            display: true,
-            text: '完成题目数',
-            font: {
-              size: 12,
-            },
-          },
-          beginAtZero: true,
-          max: Math.max(...completed) + 2,
-          ticks: {
-            stepSize: 1,
-          },
-        },
-        y1: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          title: {
-            display: true,
-            text: '学习时长 (小时)',
-            font: {
-              size: 12,
-            },
-          },
-          beginAtZero: true,
-          grid: {
-            drawOnChartArea: false,
-          },
-        },
-      },
-    },
-  });
-}
 
 // ==================== 知识点饼图 ====================
 
@@ -282,10 +143,6 @@ function initTagCountChart(tags) {
  * 刷新所有图表
  */
 function refreshAllCharts(stats) {
-  if (stats.recentDays && stats.recentDays.length > 0) {
-    initTrendChart(stats.recentDays);
-  }
-
   if (stats.tags && stats.tags.length > 0) {
     initKnowledgeChart(stats.tags);
     initTagCountChart(stats.tags);

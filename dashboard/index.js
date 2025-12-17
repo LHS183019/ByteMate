@@ -353,7 +353,6 @@ async function loadAllData() {
     // 并行加载数据
     await Promise.all([
       loadTodayStats(),
-      loadRecentTrend(),
       loadKnowledgeTags(),
       loadRecentProblems(),
       loadPetData(),
@@ -399,25 +398,6 @@ async function loadTodayStats() {
     console.log('✅ 今日统计加载完成:', todayStats);
   } catch (error) {
     console.error('加载今日统计失败:', error);
-    throw error;
-  }
-}
-
-/**
- * 加载最近7天学习趋势
- */
-async function loadRecentTrend() {
-  try {
-    const recentStats = await storage.getRecentDaysStats(7);
-    
-    if (typeof renderTrendChart === 'function') {
-      renderTrendChart(recentStats);
-      console.log('✅ 趋势图表加载完成');
-    } else {
-      console.warn('⚠️ renderTrendChart 函数未定义');
-    }
-  } catch (error) {
-    console.error('加载学习趋势失败:', error);
     throw error;
   }
 }
@@ -719,7 +699,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.dashboardAPI = {
   refresh: refreshData,
   loadTodayStats,
-  loadRecentTrend,
   loadKnowledgeTags,
   loadRecentProblems,
   loadPetData,
