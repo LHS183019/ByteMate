@@ -295,9 +295,45 @@ class UIManager {
     let html = '';
     let inCodeBlock = false;
     let codeBlockContent = '';
-    let inList = false;
-    let listType = ''; 
-    let listItems = [];
+    
+    // Stack for nested lists
+    // Each element: { type: 'ul'|'ol', indent: number, items: string[] }
+    let listStack = []; 
+    
+    const flushList = (list) => {
+        return `<${list.type}>${list.items.join('')}</${list.type}>`;
+    };
+
+    const closeDeepestList = () => {
+        if (listStack.length === 0) return;
+        const list = listStack.pop();
+        const listHtml = flushList(list);
+        
+        if (listStack.length > 0) {
+            // Append to the last item of the parent list
+            const parent = listStack[listStack.length - 1];
+            if (parent.items.length > 0) {
+                const lastItem = parent.items[parent.items.length - 1];
+                // Insert before the closing </li>
+                if (lastItem.endsWith('</li>')) {
+                    parent.items[parent.items.length - 1] = lastItem.slice(0, -5) + listHtml + '</li>';
+                } else {
+                    parent.items[parent.items.length - 1] = lastItem + listHtml;
+                }
+            } else {
+                // If parent has no items, we can't nest properly. 
+                // Just append to html? No, that breaks structure.
+                // Let's create a dummy item? No.
+                // Just append to parent items list as a raw string?
+                // It will be inside <ol>...</ol> but not inside <li>.
+                // This is invalid HTML but browsers might handle it.
+                parent.items.push(listHtml);
+            }
+        } else {
+            // Stack empty, this was a root list.
+            html += listHtml + '\n';
+        }
+    };
     
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
@@ -307,6 +343,7 @@ class UIManager {
       const isCodeBlockEnd = line.trim() === '```';
       
       if (isCodeBlockStart && !inCodeBlock) {
+        while(listStack.length > 0) closeDeepestList();
         inCodeBlock = true;
         codeBlockContent = '';
         continue;
@@ -330,6 +367,7 @@ class UIManager {
       // 1. 首先处理分割线
       const hrMatch = line.match(/^---$/);
       if (hrMatch) {
+        while(listStack.length > 0) closeDeepestList();
         html += `<hr>\n`;
         continue;
       }
@@ -340,48 +378,69 @@ class UIManager {
       const h3Match = line.match(/^###\s+(.*)$/);
       const h4Match = line.match(/^####\s+(.*)$/);
       
-      if (h1Match) {
-        html += `<h1>${this.processInlineMarkdown(h1Match[1])}</h1>\n`;
-        continue;
-      } else if (h2Match) {
-        html += `<h2>${this.processInlineMarkdown(h2Match[1])}</h2>\n`;
-        continue;
-      } else if (h3Match) {
-        html += `<h3>${this.processInlineMarkdown(h3Match[1])}</h3>\n`;
-        continue;
-      } else if (h4Match) {
-        html += `<h4>${this.processInlineMarkdown(h4Match[1])}</h4>\n`;
+      if (h1Match || h2Match || h3Match || h4Match) {
+        while(listStack.length > 0) closeDeepestList();
+        if (h1Match) html += `<h1>${this.processInlineMarkdown(h1Match[1])}</h1>\n`;
+        else if (h2Match) html += `<h2>${this.processInlineMarkdown(h2Match[1])}</h2>\n`;
+        else if (h3Match) html += `<h3>${this.processInlineMarkdown(h3Match[1])}</h3>\n`;
+        else if (h4Match) html += `<h4>${this.processInlineMarkdown(h4Match[1])}</h4>\n`;
         continue;
       }
       
-      const ulMatch = line.match(/^\-\s+(.*)$/);
-      const olMatch = line.match(/^(\d+)\.\s+(.*)$/);
+      const ulMatch = line.match(/^(\s*)[\-\*\+]\s+(.*)$/);
+      const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
       
       if (ulMatch || olMatch) {
-        const currentListType = ulMatch ? 'ul' : 'ol';
-        const content = ulMatch ? ulMatch[1] : olMatch[2];
+        const indentStr = ulMatch ? ulMatch[1] : olMatch[1];
+        const indent = indentStr.length;
+        const type = ulMatch ? 'ul' : 'ol';
+        const content = ulMatch ? ulMatch[2] : olMatch[3];
+        const itemHtml = `<li>${this.processInlineMarkdown(content)}</li>`;
         
-        if (!inList || listType !== currentListType) {
-          if (inList) { html += `<${listType}>${listItems.join('')}</${listType}>\n`; listItems = []; }
-          listType = currentListType;
-          inList = true;
-        }
-        listItems.push(`<li>${this.processInlineMarkdown(content)}</li>`);
-      } else {
-        if (inList) {
-          html += `<${listType}>${listItems.join('')}</${listType}>\n`;
-          listItems = [];
-          inList = false;
-        }
-        if (line.trim()) {
-          html += `<p>${this.processInlineMarkdown(line)}</p>\n`;
+        if (listStack.length === 0) {
+            listStack.push({ type, indent, items: [itemHtml] });
         } else {
-          html += '\n';
+            // Check if we need to close deeper lists
+            while (listStack.length > 0) {
+                const top = listStack[listStack.length - 1];
+                if (top.indent > indent) {
+                    closeDeepestList();
+                } else if (top.indent === indent) {
+                    if (top.type !== type) {
+                        closeDeepestList();
+                    } else {
+                        break; // Match found
+                    }
+                } else {
+                    break; // top.indent < indent, so we are deeper
+                }
+            }
+            
+            // Now check state
+            if (listStack.length === 0) {
+                 listStack.push({ type, indent, items: [itemHtml] });
+            } else {
+                const top = listStack[listStack.length - 1];
+                if (top.indent === indent && top.type === type) {
+                    top.items.push(itemHtml);
+                } else {
+                    // Must be deeper (indent > top.indent)
+                    listStack.push({ type, indent, items: [itemHtml] });
+                }
+            }
+        }
+      } else {
+        if (line.trim() === '') {
+            if (listStack.length === 0) html += '\n';
+            // If in list, ignore empty line
+        } else {
+            while(listStack.length > 0) closeDeepestList();
+            html += `<p>${this.processInlineMarkdown(line)}</p>\n`;
         }
       }
     }
     
-    if (inList) html += `<${listType}>${listItems.join('')}</${listType}>\n`;
+    while(listStack.length > 0) closeDeepestList();
     if (inCodeBlock && codeBlockContent) {
       const escapedCode = codeBlockContent
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -811,6 +870,7 @@ class UIManager {
     if (latestHistory) {
       // 从本地存储加载历史记录
       this.initResponse(latestHistory.feature);
+      this.isStreaming = false; // 历史记录加载不是流式传输
       this.fullContent = latestHistory.data;
       this.sections = this.fullContent.split(this.SEPARATOR_REGEX);
       
@@ -827,6 +887,8 @@ class UIManager {
           this.waitingForContinue = true;
           const nextLabel = this.getNextStepLabel(latestHistory.feature, 0);
           if (nextLabel) this.renderContinueButton(nextLabel);
+      } else {
+          this.renderFeedbackUI();
       }
       
       return true;
@@ -838,6 +900,7 @@ class UIManager {
       // 简单起见，全部显示，或者重置状态。
       // 这里选择重置状态，像刚开始一样
       this.initResponse(this.lastResponseFeature);
+      this.isStreaming = false; // 历史记录加载不是流式传输
       this.fullContent = this.lastResponseData;
       this.sections = this.fullContent.split(this.SEPARATOR_REGEX);
       
@@ -850,6 +913,8 @@ class UIManager {
           this.waitingForContinue = true;
           const nextLabel = this.getNextStepLabel(this.lastResponseFeature, 0);
           if (nextLabel) this.renderContinueButton(nextLabel);
+      } else {
+          this.renderFeedbackUI();
       }
       
       return true;

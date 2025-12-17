@@ -259,6 +259,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       time_since_copy: isCopied ? Math.round((Date.now() - lastCopyTime) / 1000) : -1
     });
 
+    // 如果是 Accepted，记录到每日统计
+    if (result === 'Accepted') {
+      recordProblemSolved(praticeId, Date.now()).catch(err => {
+        console.error('[Background] Failed to record problem solved from submit-result:', err);
+      });
+    }
+
     chrome.storage.local.get((storageData) => {
       let problemStats = storageData.problemStats || {};
       if(praticeId in problemStats) {
@@ -671,12 +678,12 @@ async function recordProblemSolved(problemId, timestamp) {
     };
     
     // 增加完成题目数
-    todayStats.completedCount += 1;
-    
-    // 保存更新后的统计
-    await new Promise((resolve) => {
-      chrome.storage.local.set({ [todayKey]: todayStats }, resolve);
-    });
+      todayStats.completedCount += 1;
+      
+      // 保存更新后的统计
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ [todayKey]: todayStats }, resolve);
+      });
     
     // 更新题目记录
     const problemsKey = 'oj_problems_solved';

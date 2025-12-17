@@ -410,17 +410,36 @@
 }
 
 /* 列表样式优化 */
-.oj-helper-markdown ul,
-.oj-helper-markdown ol {
+.oj-helper-markdown-body ul,
+.oj-helper-markdown-body ol {
   margin: 12px 0;
-  padding-left: 0; /* 移除左内边距，让标号靠左 */
-  list-style-position: inside; /* 标号在内容内部，从而与段落对齐 */
+  padding-left: 24px; /* 增加左内边距，形成缩进 */
+  list-style-position: outside; /* 标号在内容外部 */
 }
 
-.oj-helper-markdown li {
-  margin: 8px 0;
+.oj-helper-markdown-body ul li{
+  list-style-type: disc;
+}
+
+.oj-helper-markdown-body ol {
+  list-style-type: decimal;
+}
+
+/* 嵌套列表样式 */
+.oj-helper-markdown-body ul ul li{
+  list-style-type: circle;
+  margin: 6px 0;
+}
+
+.oj-helper-markdown-body ul ul ul li{
+  list-style-type: square;
+}
+
+.oj-helper-markdown-body li {
+  margin: 6px 0;
   line-height: 1.6;
   font-size: 15px;
+  display: list-item; /* 确保显示为列表项 */
 }
 
 /* 代码块容器及复制按钮 */

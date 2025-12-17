@@ -250,4 +250,49 @@ describe('Content Script Tests', () => {
     expect(context.feature).toBe('guide');
     expect(context.title).toBe('Test Problem');
   });
+
+  test('Markdown: List rendering support', () => {
+    const markdown = `
+- Item 1
+* Item 2
++ Item 3
+    `.trim();
+    
+    const html = uiManager.parseMarkdown(markdown);
+    
+    // Should contain ul and li tags
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<li>Item 1</li>');
+    expect(html).toContain('<li>Item 2</li>');
+    expect(html).toContain('<li>Item 3</li>');
+    expect(html).toContain('</ul>');
+  });
+
+  test('History: showLastResponse sets isStreaming to false', () => {
+    // Mock history data
+    uiManager.getLatestHistoryByPageType = jest.fn(() => ({
+      feature: 'guide',
+      data: 'Section 1\n\n__NEXT_STEP__\n\nSection 2',
+      timestamp: Date.now()
+    }));
+    
+    uiManager.getCurrentPageType = jest.fn(() => 'problem');
+    
+    // Call showLastResponse
+    uiManager.showLastResponse();
+    
+    // Check isStreaming flag
+    expect(uiManager.isStreaming).toBe(false);
+    
+    // Check if continue button is rendered (since there are 2 sections)
+    const continueBtn = uiManager.contentArea.querySelector('.oj-helper-continue-btn');
+    expect(continueBtn).toBeTruthy();
+    
+    // Simulate clicking continue
+    continueBtn.click();
+    
+    // Since isStreaming is false, feedback UI should appear at the end
+    const feedbackBtn = uiManager.contentArea.querySelector('.oj-helper-feedback-btn');
+    expect(feedbackBtn).toBeTruthy();
+  });
 });
