@@ -899,3 +899,14 @@ async function sendTelemetryEvent(eventName, params = {}) {
     console.warn('[Telemetry] Failed to send event:', error);
   }
 }
+
+// Expose functions for testing
+if (typeof window !== 'undefined') {
+  window.BackgroundService = {
+    initializeConfig,
+    getLLMConfig,
+    generatePrompt,
+    appConfig,
+    PROVIDER_CONFIG
+  };
+}
