@@ -40,7 +40,7 @@ let appConfig = {
 };
 
 // 记录最后一次复制代码的时间
-let lastCopyTime = 0;
+// let lastCopyTime = 0; // 移至 storage 存储，避免 Service Worker 休眠导致数据丢失
 
 // 默认配置（内置 Key）
 // ⚠️ 注意：在客户端代码中硬编码 API Key 存在安全风险。
@@ -245,18 +245,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if(request.action === 'submit-result') {
     const {data} = request;
+    console.log('[Background] Received submit-result message:', JSON.stringify(data));
     const {result, praticeId, submitTime} = data;
-    console.log(`[Background] result: ${result}, praticeId: ${praticeId}, submitTime: ${submitTime}`);
     
     // 发送提交结果遥测
-    // 检查是否是“复制后提交”（例如 10 分钟内）
-    const isCopied = (Date.now() - lastCopyTime) < 10 * 60 * 1000;
-    
-    sendTelemetryEvent('code_submission', {
-      result: result,
-      problem_id: praticeId,
-      is_copied: isCopied ? 'yes' : 'no',
-      time_since_copy: isCopied ? Math.round((Date.now() - lastCopyTime) / 1000) : -1
+    // 从 storage 获取最后一次复制代码的时间
+    chrome.storage.local.get(['lastCopyTime'], (storageResult) => {
+      const lastCopyTime = storageResult.lastCopyTime || 0;
+      console.log('[Background] Retrieved lastCopyTime:', lastCopyTime);
+      
+      // 检查是否是“复制后提交”（例如 10 分钟内）
+      const isCopied = (Date.now() - lastCopyTime) < 10 * 60 * 1000;
+      console.log('[Background] isCopied:', isCopied, 'Time since copy:', (Date.now() - lastCopyTime) / 1000);
+      
+      sendTelemetryEvent('code_submission', {
+        result: result,
+        problem_id: praticeId,
+        is_copied: isCopied ? 'yes' : 'no',
+        time_since_copy: isCopied ? Math.round((Date.now() - lastCopyTime) / 1000) : -1
+      });
     });
 
     // 如果是 Accepted，记录到每日统计
@@ -425,7 +432,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'copy_code') {
-    lastCopyTime = Date.now();
+    const now = Date.now();
+    chrome.storage.local.set({ lastCopyTime: now });
+    
     const { length } = request.data || {};
     console.log('[Background] User copied code, length:', length);
     
@@ -565,6 +574,7 @@ chrome.runtime.onConnect.addListener((port) => {
  * 流式调用 AI 功能
  */
 async function invokeAIFeatureStream(context, port) {
+  const startTime = Date.now();
   try {
     console.log('[AI-Stream] Starting:', context.feature);
     
@@ -583,6 +593,12 @@ async function invokeAIFeatureStream(context, port) {
 
     const llmConfig = getLLMConfig();
     const prompt = await generatePrompt(context);
+
+    // 发送开始遥测
+    sendTelemetryEvent('ai_feature_start', {
+      feature: context.feature,
+      model: appConfig.model
+    });
 
     console.log('[AI-Stream] Sending request to LLM Provider:', llmConfig.baseUrl);
     console.log('[AI-Stream] Final Prompt:', prompt);
@@ -624,6 +640,13 @@ async function invokeAIFeatureStream(context, port) {
       const { done, value } = await reader.read();
       if (done) {
         port.postMessage({ type: 'done' });
+        
+        // 发送成功遥测
+        sendTelemetryEvent('ai_feature_success', {
+          feature: context.feature,
+          model: appConfig.model,
+          latency: Date.now() - startTime
+        });
         break;
       }
 
@@ -635,6 +658,10 @@ async function invokeAIFeatureStream(context, port) {
           const jsonStr = line.slice(6).trim();
           if (jsonStr === '[DONE]') {
             port.postMessage({ type: 'done' });
+            
+            // 发送成功遥测 (如果之前没发送过)
+            // 注意：这里可能会重复发送，最好只在循环外发送，或者加个标志位
+            // 但通常 [DONE] 之后 reader.read() 也会 done，所以这里可以忽略，或者只在 done 时发送
             break;
           }
           try {
@@ -652,6 +679,14 @@ async function invokeAIFeatureStream(context, port) {
   } catch (error) {
     console.error('[AI-Stream] Error:', error);
     port.postMessage({ type: 'error', error: error.message });
+    
+    // 发送失败遥测
+    sendTelemetryEvent('ai_feature_error', {
+      feature: context.feature,
+      model: appConfig.model,
+      error_type: error.message.includes('API Key') ? 'auth_error' : 'api_error',
+      error_message: error.message.substring(0, 100)
+    });
   }
 }
 

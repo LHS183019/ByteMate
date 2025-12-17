@@ -47,7 +47,10 @@
       "css": ["content/style.css"]
     },
     {
-      "matches": ["*://bailian.openjudge.cn/practice/solution/*/"],
+      "matches": [
+        "*://*.openjudge.cn/*/solution/*",
+        "*://*.openjudge.cn/solution/*"
+      ],
       "js": ["content/result-check.js"]
     }
   ],
