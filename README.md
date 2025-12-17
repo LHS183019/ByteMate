@@ -1,32 +1,44 @@
-# ByteMate - AI OpenJudge 学习助手 🐱
+# POJPaw - AI OpenJudge 学习助手 🐱
 
-ByteMate 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 扩展。它通过集成大语言模型（LLM），为学生提供实时的编程指导、思路提示、代码纠错和知识推荐，同时配备了可视化的学习仪表盘和电子宠物陪伴系统。
+POJPaw (by ByteMate Team) 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 扩展。它通过集成大语言模型（LLM），为学生提供实时的编程指导、思路提示、代码纠错和知识推荐，同时配备了可视化的学习仪表盘和电子宠物陪伴系统。
 
-![ByteMate Screenshot](readme_asset/asset1.png)
 
 ## ✨ 核心特性
 
 ### 🤖 智能辅助功能
+
+![POJPaw Screenshot](readme_asset/bytemate6.png)
+
+
 *   **📚 问题引导 (Guide)**：像老师一样循循善诱，分步骤引导你思考解题方向，而不是直接给出答案。
 *   **💡 思路提示 (Hint)**：当你卡壳时，提供关键的算法思路和逻辑提示。
 *   **🔧 代码纠错 (Fix)**：分析你的代码错误，提供具体的修改建议。
-*   **🐍 多语言支持**：支持生成 **C++** 或 **Python** 代码，满足不同学习者的需求。
 *   **📖 知识推荐 (Recommend)**：根据当前题目，推荐相关的算法知识点和学习资源。
 *   **💬 伙伴对话 (Chat)**：点击小猫进行简单的互动，获取鼓励和陪伴。
 
 ### 🖥️ 交互体验
+
+
+*   **完整题库**：POJ完整题库检索
+![POJPaw Screenshot](readme_asset/bytemate5.png)
 *   **纯客户端架构**：无需安装本地 Node.js 服务器，安装插件即用。
+*   **多语言支持**：支持生成 **C++** 或 **Python** 代码，满足不同学习者的需求。
 *   **悬浮小猫助手**：可爱的像素风小猫常驻页面，点击即可唤起功能菜单。
+![POJPaw Screenshot](readme_asset/bytemate.png)
 *   **侧边栏交互**：流畅的侧边栏动画，支持 Markdown 渲染、代码高亮和一键复制。
+![POJPaw Screenshot](readme_asset/bytemate2.png)
 *   **用户反馈系统**：对 AI 回答不满意？一键反馈，帮助我们持续优化。
 
 ### 📊 学习仪表盘 (Dashboard)
-*   **数据统计**：记录你的每日刷题量、AI 辅助次数。
+
+![POJPaw Screenshot](readme_asset/bytemate3.png)
+
+*   **数据统计**：记录你的每日刷题量
 *   **知识图谱**：可视化展示你已掌握的算法知识点。
 *   **电子宠物**：随着你的学习进度成长，提供情感陪伴。
 
 ### 📈 智能遥测 (Telemetry)
-*   **隐私安全**：使用匿名 ID，不收集个人身份信息。
+*   **隐私安全**：使用匿名 ID，不收集任何个人身份信息。
 *   **效能分析**：自动分析“复制 AI 代码”后的提交通过率，评估辅助效果。
 *   **实时监控**：基于 Google Analytics 4 的实时系统状态监控。
 
@@ -49,33 +61,18 @@ ByteMate 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 
 .\package_extension.ps1
 ```
 
-## 🧪 单元测试
+## ⚙️ 配置说明
 
-本项目包含完整的单元测试套件，覆盖了 Popup、Content Script、Background Service 和 Dashboard 的核心逻辑。
+安装完成后，点击浏览器右上角的插件图标（POJPaw 图标）打开设置面板：
 
-运行测试：
-```bash
-npm test
-```
+1.  **选择模型**：暂时支持 DeepSeek, Qwen (通义千问) 
+2.  **配置 API Key**：
+    *   输入您的 API Key。
+    *   或者**留空**，你仍然可以拷贝prompt到自己偏好的软件使用。
+3.  **保存**：点击保存按钮，即可开始使用。
 
-查看测试文档：[UNITTEXT.md](UNITTEXT.md)
+---
 
-**Mac / Linux 用户:**
-在终端运行：
-```bash
-./package_extension.sh
-```
-
-脚本会在根目录生成 `ByteMate_Extension.zip`。将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
-
-> **Mac/Linux 用户提示**:
-> 1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
-> 2. 运行时遇到 `syntax error: unexpected end of file`： 可能是在 Windows 中编辑的脚本包含不兼容的换行符（CRLF），请使用 `vim` 修改格式：
->    ```bash
->    vim package_extension.sh
->    :set ff=unix
->    :wq
->    ```
 
 ## 💻 开发环境配置（仅开发者需要）
 
@@ -94,24 +91,11 @@ npm test
     ```
     测试覆盖了 Popup 设置逻辑、侧边栏交互以及数据统计功能。
 
----
-
-## ⚙️ 配置说明
-
-安装完成后，点击浏览器右上角的插件图标（ByteMate 图标）打开设置面板：
-
-1.  **选择模型**：暂时支持 DeepSeek, Qwen (通义千问) 。
-2.  **配置 API Key**：
-    *   输入您的 API Key。
-    *   或者**留空**，插件将尝试使用内置的默认 Key（如果开发者已配置）。
-3.  **保存**：点击保存按钮，即可开始使用。
-
----
 
 ## 📂 项目结构
 
 ```
-ByteMate/
+POJPaw/
 ├── manifest.json        // 扩展核心配置文件 (Manifest V3)
 ├── background/          // 后台服务 (Service Worker)
 │   └── background.js    // 处理 API 请求、遥测、状态管理
@@ -133,9 +117,38 @@ ByteMate/
 *   **遥测系统**：集成了 GA4 Measurement Protocol。相关配置位于 `background.js` 顶部。
 *   **样式修改**：主要 UI 样式位于 `content/style.css`，采用 Shadow DOM 思想（但在 Content Script 中直接注入 CSS）以避免样式冲突。
 
+## 🧪 单元测试
+
+本项目包含完整的单元测试套件，覆盖了 Popup、Content Script、Background Service 和 Dashboard 的核心逻辑。
+
+运行测试：
+```bash
+npm test
+```
+
+查看测试文档：[UNITTEXT.md](UNITTEXT.md)
+
+**Mac / Linux 用户:**
+在终端运行：
+```bash
+./package_extension.sh
+```
+
+脚本会在根目录生成 `POJPaw_Extension.zip`。将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
+
+> **Mac/Linux 用户提示**:
+> 1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
+> 2. 运行时遇到 `syntax error: unexpected end of file`： 可能是在 Windows 中编辑的脚本包含不兼容的换行符（CRLF），请使用 `vim` 修改格式：
+>    ```bash
+>    vim package_extension.sh
+>    :set ff=unix
+>    :wq
+>    ```
+
+
 ## 📝 贡献
 
 欢迎提交 Issue 和 Pull Request！
 
 ---
-*Last Updated: 2025-12-13*
+*Last Updated: 2025-12-18*

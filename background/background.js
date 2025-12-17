@@ -256,7 +256,7 @@ ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: 
             similarProblems.forEach(p => {
               fullPrompt += `- [${p.id}] ${p.title} (难度: ${p.difficulty})\n  知识点: ${[...(p.algorithms||[]), ...(p.data_structures||[])].join(', ')}\n  链接: ${p.link}\n`;
             });
-            fullPrompt += `\n**特别提示：** 请在推荐完题目后，明确告诉用户：“您可以通过浏览器右上角 ByteMate 插件图标打开菜单，点击‘题库’按钮，在 OpenJudge 题库中查找更多相关题目。”\n`;
+            fullPrompt += `\n**特别提示：** 请在推荐完题目后，明确告诉用户：“您可以通过浏览器右上角 POJPaw 插件图标打开菜单，点击‘题库’按钮，在 OpenJudge 题库中查找更多相关题目。”\n`;
           }
         }
       }

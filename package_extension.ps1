@@ -1,4 +1,4 @@
-$outputFile = "ByteMate_Extension.zip"
+$outputFile = "POJPaw_Extension.zip"
 
 # 如果存在旧的压缩包，先删除
 if (Test-Path $outputFile) {

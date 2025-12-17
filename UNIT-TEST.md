@@ -1,7 +1,7 @@
 # 单元测试实现总结
 
 ## 概览
-已使用 **Jest** 和 **JSDOM** 为 ByteMate 扩展建立了单元测试。测试基础设施模拟了 Chrome API（`chrome.runtime`、`chrome.storage`、`chrome.tabs`）以仿真扩展运行环境。
+已使用 **Jest** 和 **JSDOM** 为 POJPaw 扩展建立了单元测试。测试基础设施模拟了 Chrome API（`chrome.runtime`、`chrome.storage`、`chrome.tabs`）以仿真扩展运行环境。
 
 项目已配置 **代码覆盖率 (Code Coverage)** 检测，并在 CI/CD 流程中自动生成和上传覆盖率报告。
 

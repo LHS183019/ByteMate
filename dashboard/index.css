@@ -619,3 +619,30 @@ body {
 	font-weight: 500;
 	animation: fadeIn 0.5s ease-out;
 }
+
+/* ==================== ������������ʽ ==================== */
+.coming-soon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-gray);
+    background-color: #f3f4f6;
+    border-radius: 0.5rem;
+    border: 2px dashed var(--border-color);
+    min-height: 200px;
+}
+
+.coming-soon-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.coming-soon-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+

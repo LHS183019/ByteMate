@@ -1,5 +1,5 @@
 #!/bin/bash
-OUTPUT_FILE="ByteMate_Extension.zip"
+OUTPUT_FILE="POJPaw_Extension.zip"
 # 如果存在旧的压缩包，先删除
 if [ -f "$OUTPUT_FILE" ]; then
     rm "$OUTPUT_FILE"
@@ -12,6 +12,15 @@ zip -r "$OUTPUT_FILE" . \
     -x "readme_asset/*" \
     -x "README.md" \
     -x "TODO.md" \
+    -x "TELEMETRY.md" \
+    -x "UNIT-TEST.md" \
+    -x "PRIVACY_POLICY.md" \
+    -x "package.json" \
+    -x "package-lock.json" \
+    -x "jest.config.js" \
+    -x "coverage/*" \
+    -x "tests/*" \
+    -x "package_extension.ps1" \
     -x "*.DS_Store" \
     -x "package_extension.sh"
 

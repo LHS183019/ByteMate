@@ -1,5 +1,5 @@
 /**
- * Popup.js - ByteMate 右上角弹出窗口主逻辑
+ * Popup.js - POJPaw 右上角弹出窗口主逻辑
  * 功能：
  * 1. 模型选择和切换
  * 2. API Key 配置和保存

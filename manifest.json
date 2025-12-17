@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI OpenJudge Helper",
+  "name": "POJPaw - AI OpenJudge Helper",
   "description": "OpenJudge 学习助手：问题引导、思路提示、代码纠错、学习进度、宠物陪伴。",
-  "version": "0.1",
+  "version": "1.0.0",
 
   "icons": {
     "16": "assets/kitten/idle_facing_left/pixil-frame-4.png",
