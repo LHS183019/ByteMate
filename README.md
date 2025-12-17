@@ -14,7 +14,7 @@
 [Chrome-image]: https://img.shields.io/badge/Chrome-Extension-blue?style=flat-square&logo=google-chrome
 [Edge-image]: https://img.shields.io/badge/Edge-Addon-blue?style=flat-square&logo=microsoft-edge
 
-[License-url]: https://github.com/LHS183019/ByteMate/blob/main/LICENSE
+[License-url]: https://github.com/LHS183019/ByteMate/blob/pojpaw/LICENSE
 [Releases-url]: https://github.com/LHS183019/ByteMate/releases
 [Chrome-url]: #
 [Edge-url]: #
