@@ -62,9 +62,7 @@
         "assets/*",
         "dashboard/*",
         "prompts/*",
-        "problemset/*",
-        "test/*",
-        "debug/*"
+        "problemset/*"
       ],
       "matches": ["<all_urls>"]
     }

@@ -84,6 +84,8 @@
 *   **效能分析**：自动分析“复制 AI 代码”后的提交通过率，评估辅助效果。
 *   **实时监控**：基于 Google Analytics 4 的实时系统状态监控。
 
+更多可查看我们的[隐私政策](PRIVACY_POLICY.md)和[遥测系统文档](TELEMETRY.md)。
+
 ---
 
 ## 🚀 安装指南
@@ -112,7 +114,7 @@
 
 ---
 
-## 💻 开发环境配置（仅开发者需要）
+## 💻 开发环境配置（仅开发者）
 
 > **注意**：普通用户**不需要**安装 Node.js，直接加载插件即可使用。以下步骤仅适用于需要运行单元测试或参与开发的贡献者。
 
@@ -165,37 +167,36 @@ npm test
 
 查看测试文档：[UNITTEXT.md](UNITTEXT.md)
 
+
+
+## 🗺️ 打包安装
+
 **Mac / Linux 用户:**
 在终端运行：
 ```bash
 ./package_extension.sh
 ```
+或者
+```bash
+bash package_extension.sh
+```
 
 脚本会在根目录生成 `POJPaw_Extension.zip`。将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
 
-> **Mac/Linux 用户提示**:
-> 1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
-> 2. 运行时遇到 `syntax error: unexpected end of file`： 可能是在 Windows 中编辑的脚本包含不兼容的换行符（CRLF），请使用 `vim` 修改格式：
->    ```bash
->    vim package_extension.sh
->    :set ff=unix
->    :wq
->    ```
-
-
-## 🗺️ 打包安装
+**Mac/Linux 用户提示**:
+1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
+2. 运行时遇到 `syntax error: unexpected end of file`： 可能是在 Windows 中编辑的脚本包含不兼容的换行符（CRLF），请使用 `vim` 修改格式：
+```bash
+vim package_extension.sh
+:set ff=unix
+:wq
+```
 
 **Windows 用户:**
 在 PowerShell 中运行：
 ```powershell
 .\package_extension.ps1
 ```
-**Mac / Linux 用户:**
-在终端运行：
-```bash
-./package_extension.sh
-```
-
 
 ## 📝 贡献
 

@@ -18,6 +18,7 @@ zip -r "$OUTPUT_FILE" . \
     -x "package.json" \
     -x "package-lock.json" \
     -x "jest.config.js" \
+    -x "node_modules/*" \
     -x "coverage/*" \
     -x "tests/*" \
     -x "package_extension.ps1" \
