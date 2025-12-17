@@ -1254,7 +1254,7 @@ class UIManager {
           <span class="tag" data-value="我是算法入门新手">入门新手</span>
           <span class="tag" data-value="我想学习动态规划">动态规划</span>
           <span class="tag" data-value="我想学习图论">图论</span>
-          <span class="tag" data-value="备战 NOIP/CSP">备战考级</span>
+          <span class="tag" data-value="我想学习数据结构">数据结构</span>
         </div>
         <button id="oj-recommend-submit" class="oj-helper-submit-btn">开始推荐</button>
       </div>
