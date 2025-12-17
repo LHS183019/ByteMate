@@ -1826,6 +1826,9 @@ class UIManager {
                 pageType,
                 title: String((usedContext && usedContext.title) ? usedContext.title : ''),
                 statement: String((usedContext && usedContext.statement) ? usedContext.statement : ''),
+                inputDescription: String((usedContext && usedContext.inputDescription) ? usedContext.inputDescription : ''),
+                outputDescription: String((usedContext && usedContext.outputDescription) ? usedContext.outputDescription : ''),
+                hint: String((usedContext && usedContext.hint) ? usedContext.hint : ''),
                 samples: (usedContext && usedContext.samples) ? usedContext.samples : [],
                 currentCode: String(currentCode || (usedContext && usedContext.currentCode) || ''),
                 tags: (usedContext && usedContext.tags) ? usedContext.tags : [],
@@ -1865,6 +1868,9 @@ class UIManager {
       const ctx = {
         title: '',
         statement: '',
+        inputDescription: '',
+        outputDescription: '',
+        hint: '',
         samples: [],
         currentCode: '',
         tags: [],
@@ -1886,9 +1892,16 @@ class UIManager {
           const dd = dt.nextElementSibling;
           if (!dd) return;
           const text = (dd.innerText || dd.textContent || '').trim();
-          if (/^描述|^题面|描述/i.test(key)) {
+          
+          if (/^描述|^题面|Description/i.test(key)) {
             ctx.statement = text;
-          } else if (/样例输入|Sample Input|样例/i.test(key)) {
+          } else if (/^输入$|^输入格式$|^Input$/i.test(key)) {
+            ctx.inputDescription = text;
+          } else if (/^输出$|^输出格式$|^Output$/i.test(key)) {
+            ctx.outputDescription = text;
+          } else if (/提示|Hint/i.test(key)) {
+            ctx.hint = text;
+          } else if (/样例输入|Sample Input/i.test(key)) {
             const pres = Array.from(dd.querySelectorAll('pre')).map(n => (n.innerText||n.textContent||'').trim()).filter(Boolean);
             if (pres.length) pres.forEach(p=>samplesInputs.push(p));
           } else if (/样例输出|Sample Output/i.test(key)) {

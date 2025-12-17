@@ -119,6 +119,9 @@ async function generatePrompt(context) {
     feature,
     title,
     statement,
+    inputDescription,
+    outputDescription,
+    hint,
     currentCode,
     samples,
     customPrompt,
@@ -169,6 +172,9 @@ async function generatePrompt(context) {
   fullPrompt += `=== 当前页面上下文 (仅供参考，如无关请忽略) ===
 题目标题: ${title}
 题目描述: ${statement}
+输入描述: ${inputDescription || '无'}
+输出描述: ${outputDescription || '无'}
+提示: ${hint || '无'}
 
 当前用户代码:
 \`\`\`cpp
