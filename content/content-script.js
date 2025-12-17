@@ -2176,6 +2176,11 @@ function getProblemContext() {
     window.addEventListener("load", createMenu);
   }
 
+  // Expose for testing
+  if (typeof window !== 'undefined') {
+    window._test_createMenu = createMenu;
+  }
+
 })();
 
 if (typeof window !== 'undefined') {
