@@ -17,7 +17,7 @@ describe('Popup Tests', () => {
     document.body.innerHTML = `
       <select id="model-select">
         <option value="deepseek">DeepSeek</option>
-        <option value="zhipu">Zhipu</option>
+        <option value="qwen">Qwen</option>
       </select>
       <input id="api-key-input" />
       <button id="toggle-password-btn"></button>
@@ -53,7 +53,7 @@ describe('Popup Tests', () => {
     const modelSelect = document.getElementById('model-select');
     
     apiKeyInput.value = 'new-key-longer-than-10';
-    modelSelect.value = 'zhipu';
+    modelSelect.value = 'qwen';
     
     StorageManager.setItem.mockResolvedValue(true);
     
@@ -63,7 +63,7 @@ describe('Popup Tests', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     
     expect(StorageManager.setItem).toHaveBeenCalledWith('bytemate_api_key', 'new-key-longer-than-10');
-    expect(StorageManager.setItem).toHaveBeenCalledWith('bytemate_model', 'zhipu');
+    expect(StorageManager.setItem).toHaveBeenCalledWith('bytemate_model', 'qwen');
   });
 
   test('Dashboard button should open dashboard', () => {

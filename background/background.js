@@ -16,10 +16,6 @@ const PROVIDER_CONFIG = {
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     model: 'qwen-plus'
   },
-  zhipu: {
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    model: 'glm-4'
-  },
   openai: {
     baseUrl: 'https://api.openai.com/v1',
     model: 'gpt-4'
@@ -196,10 +192,18 @@ ${samples ? samples.map((s, i) => `示例${i + 1}:\n输入: ${s.input}\n输出: 
 
 // 获取 LLM 配置
 function getLLMConfig() {
+  // 如果模型名称直接存在于配置中，直接使用
+  if (PROVIDER_CONFIG[appConfig.model]) {
+    return {
+      ...PROVIDER_CONFIG[appConfig.model],
+      apiKey: appConfig.apiKey
+    };
+  }
+
+  // 兼容旧版配置（使用显示名称的情况）
   const providerMap = {
     'OpenAI GPT-4': 'openai',
     'DeepSeek': 'deepseek',
-    'Zhipu (智谱)': 'zhipu',
     'Qwen (通义千问)': 'qwen',
     'Groq': 'groq'
   };
@@ -641,6 +645,7 @@ async function invokeAIFeatureStream(context, port) {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
@@ -656,19 +661,20 @@ async function invokeAIFeatureStream(context, port) {
         break;
       }
 
-      const text = decoder.decode(value);
-      const lines = text.split('\n');
+      const text = decoder.decode(value, { stream: true });
+      buffer += text;
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // 保留最后一个可能不完整的行
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const jsonStr = line.slice(6).trim();
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+
+        if (trimmedLine.startsWith('data: ')) {
+          const jsonStr = trimmedLine.slice(6).trim();
           if (jsonStr === '[DONE]') {
-            port.postMessage({ type: 'done' });
-            
-            // 发送成功遥测 (如果之前没发送过)
-            // 注意：这里可能会重复发送，最好只在循环外发送，或者加个标志位
-            // 但通常 [DONE] 之后 reader.read() 也会 done，所以这里可以忽略，或者只在 done 时发送
-            break;
+            // 流结束标志
+            continue;
           }
           try {
             const data = JSON.parse(jsonStr);
@@ -677,7 +683,7 @@ async function invokeAIFeatureStream(context, port) {
               port.postMessage({ type: 'chunk', data: content });
             }
           } catch (e) {
-            // ignore parse error
+            // 忽略解析错误（可能是非JSON数据或不完整数据）
           }
         }
       }

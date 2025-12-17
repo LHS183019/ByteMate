@@ -19,6 +19,13 @@ describe('Content Script Tests', () => {
     // Use fake timers
     jest.useFakeTimers();
     
+    // Mock MutationObserver to prevent "Cannot log after tests are done" error
+    global.MutationObserver = class {
+      constructor(callback) {}
+      observe(element, options) {}
+      disconnect() {}
+    };
+
     // Mock chrome API
     global.chrome = {
       runtime: {

@@ -87,7 +87,7 @@ ByteMate 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 
 
 安装完成后，点击浏览器右上角的插件图标（ByteMate 图标）打开设置面板：
 
-1.  **选择模型**：支持 DeepSeek, GPT-4, Zhipu (智谱), Qwen (通义千问) 等。
+1.  **选择模型**：暂时支持 DeepSeek, Qwen (通义千问) 。
 2.  **配置 API Key**：
     *   输入您的 API Key。
     *   或者**留空**，插件将尝试使用内置的默认 Key（如果开发者已配置）。

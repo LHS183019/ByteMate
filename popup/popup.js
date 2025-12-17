@@ -18,7 +18,6 @@ const STORAGE_KEYS = {
 
 const MODELS = {
   deepseek: 'DeepSeek',
-  zhipu: 'Zhipu (智谱)',
   qwen: 'Qwen (通义千问)'
 };
 
