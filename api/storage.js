@@ -60,7 +60,7 @@ class StorageManager {
       // 初始化宠物数据
       if (!existing[this.STORAGE_KEYS.PET_DATA]) {
         await this.localStorage.set(this.STORAGE_KEYS.PET_DATA, {
-          name: '学习伙伴',
+          name: '赵鱼鱼',
           level: 1,
           exp: 0,
           mood: 100,               // 0-100，心情值
@@ -68,6 +68,13 @@ class StorageManager {
           lastFeedTime: Date.now(),
           createdAt: Date.now(),
         });
+      } else {
+        // 简单的迁移逻辑：如果名字是默认的"学习伙伴"，更新为"赵鱼鱼"
+        const petData = existing[this.STORAGE_KEYS.PET_DATA];
+        if (petData.name === '学习伙伴') {
+          petData.name = '赵鱼鱼';
+          await this.localStorage.set(this.STORAGE_KEYS.PET_DATA, petData);
+        }
       }
 
       // 初始化知识点标签

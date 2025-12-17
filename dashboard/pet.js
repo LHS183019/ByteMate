@@ -55,8 +55,48 @@ function renderPet(petData) {
   updateFrame(); // 立即显示第一帧
   petAnimationInterval = setInterval(updateFrame, frameRate);
   
-  console.log(`🐱 宠物动画已启动: ${petData.name} (Lv.${petData.level})`);
+  console.log(`🐱 宠物动画已启动: ${petData.name}`);
+}
+
+/**
+ * 初始化宠物交互
+ */
+function initPetInteractions() {
+  const feedBtn = document.getElementById('feed-pet-btn');
+  const morePetsBtn = document.getElementById('more-pets-btn');
+  const statusElement = document.getElementById('pet-status');
+
+  if (feedBtn) {
+    feedBtn.addEventListener('click', () => {
+      // 简单的投喂反馈
+      const originalText = statusElement.textContent;
+      statusElement.textContent = '赵鱼鱼: 喵！好开心！🐟';
+      statusElement.style.color = '#e11d48'; // 变红表示开心
+      
+      // 禁用按钮防止刷屏
+      feedBtn.disabled = true;
+      feedBtn.textContent = '已投喂';
+      
+      // 3秒后恢复
+      setTimeout(() => {
+        statusElement.textContent = originalText;
+        statusElement.style.color = '';
+        feedBtn.disabled = false;
+        feedBtn.textContent = '🐟 投喂';
+      }, 3000);
+      
+      // 这里可以添加发送遥测或更新心情存储的逻辑
+      console.log('🐱 赵鱼鱼被投喂了');
+    });
+  }
+
+  if (morePetsBtn) {
+    morePetsBtn.addEventListener('click', () => {
+      alert('更多小伙伴正在赶来的路上，敬请期待！🐱🐶🐰');
+    });
+  }
 }
 
 // 导出函数到全局作用域，以便 index.js 调用
 window.renderPet = renderPet;
+window.initPetInteractions = initPetInteractions;

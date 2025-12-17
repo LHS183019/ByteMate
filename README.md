@@ -48,6 +48,17 @@ ByteMate 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 
 .\package_extension.ps1
 ```
 
+## 🧪 单元测试
+
+本项目包含完整的单元测试套件，覆盖了 Popup、Content Script、Background Service 和 Dashboard 的核心逻辑。
+
+运行测试：
+```bash
+npm test
+```
+
+查看测试文档：[UNITTEXT.md](UNITTEXT.md)
+
 **Mac / Linux 用户:**
 在终端运行：
 ```bash

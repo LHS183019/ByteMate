@@ -203,6 +203,30 @@ body {
 	margin-top: 1rem;
 }
 
+.pet-actions {
+	display: flex;
+	gap: 0.5rem;
+	justify-content: center;
+	margin-top: 1rem;
+}
+
+.action-btn.small-btn {
+	padding: 0.4rem 0.8rem;
+	font-size: 0.8rem;
+}
+
+.action-btn.secondary-btn {
+	background-color: var(--bg-white);
+	color: var(--text-gray);
+	border: 1px solid var(--border-color);
+}
+
+.action-btn.secondary-btn:hover {
+	background-color: var(--bg-light);
+	color: var(--primary-color);
+	border-color: var(--primary-color);
+}
+
 /* ==================== 内容区域 ==================== */
 .content-section {
 	display: grid;

@@ -14,6 +14,39 @@ function createFallbackStorage() {
   
   return {
     async init() {
+      // 检查并迁移宠物名称
+      try {
+        const petKey = STORAGE_PREFIX + 'pet_data';
+        let petData = null;
+
+        // 尝试从 Chrome 存储读取
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+          const result = await new Promise(resolve => chrome.storage.local.get([petKey], resolve));
+          if (result[petKey]) {
+            petData = result[petKey];
+            if (petData.name === '学习伙伴') {
+              petData.name = '赵鱼鱼';
+              await new Promise(resolve => chrome.storage.local.set({ [petKey]: petData }, resolve));
+              console.log('✅ [Fallback] 宠物名称已迁移为赵鱼鱼 (Chrome Storage)');
+            }
+          }
+        }
+
+        // 尝试从 localStorage 读取 (如果 Chrome Storage 没读到或环境不支持)
+        if (!petData) {
+          const localData = localStorage.getItem(petKey);
+          if (localData) {
+            petData = JSON.parse(localData);
+            if (petData.name === '学习伙伴') {
+              petData.name = '赵鱼鱼';
+              localStorage.setItem(petKey, JSON.stringify(petData));
+              console.log('✅ [Fallback] 宠物名称已迁移为赵鱼鱼 (localStorage)');
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('宠物数据迁移失败:', e);
+      }
       return true;
     },
     
@@ -147,7 +180,7 @@ function createFallbackStorage() {
       const key = STORAGE_PREFIX + 'pet_data';
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : {
-        name: '学习伙伴',
+        name: '赵鱼鱼',
         level: 1,
         exp: 0,
         mood: 100,
@@ -469,7 +502,7 @@ async function loadPetData() {
     // 更新宠物状态文字
     const statusElement = document.getElementById('pet-status');
     if (statusElement) {
-      statusElement.textContent = `${petData.name} | Lv.${petData.level} | 心情: ${petData.mood}%`;
+      statusElement.textContent = `${petData.name} | 心情: ${petData.mood}%`;
     }
     
     // 调用宠物渲染函数（如果存在）
@@ -620,6 +653,11 @@ async function refreshData() {
  * 添加事件监听
  */
 function setupEventListeners() {
+  // 初始化宠物交互
+  if (typeof initPetInteractions === 'function') {
+    initPetInteractions();
+  }
+
   // 刷新数据按钮
   const refreshBtn = document.getElementById('refresh-data-btn');
   if (refreshBtn) {
@@ -745,4 +783,5 @@ window.dashboardAPI = {
   loadKnowledgeTags,
   loadRecentProblems,
   loadPetData,
+  setupEventListeners, // Exported for testing
 };
