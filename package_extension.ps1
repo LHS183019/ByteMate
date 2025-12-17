@@ -10,7 +10,7 @@ $exclude = @(
     "*.git*",
     "backend/*",
     "test/*",
-    "__tests__/*",
+    "tests/*",
     "node_modules/*",
     "readme_asset/*",
     "README.md",
