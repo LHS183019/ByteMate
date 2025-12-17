@@ -1,14 +1,57 @@
-# POJPaw - AI OpenJudge 学习助手 🐱
+<div align="center">
 
-POJPaw (by ByteMate Team) 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 扩展。它通过集成大语言模型（LLM），为学生提供实时的编程指导、思路提示、代码纠错和知识推荐，同时配备了可视化的学习仪表盘和电子宠物陪伴系统。
+# 🐾 POJPaw —— AI OpenJudge 学习伙伴 🐱
+[![License][License-image]][License-url]
+[![Releases][Releases-image]][Releases-url]
+[![Chrome][Chrome-image]][Chrome-url]
+[![Edge][Edge-image]][Edge-url]
 
+🌐  **简体中文**
+</div>
+
+[License-image]: https://img.shields.io/github/license/LHS183019/ByteMate?style=flat-square&color=brown
+[Releases-image]: https://img.shields.io/github/v/release/LHS183019/ByteMate?sort=semver&color=orange&label=Release
+[Chrome-image]: https://img.shields.io/badge/Chrome-Extension-blue?style=flat-square&logo=google-chrome
+[Edge-image]: https://img.shields.io/badge/Edge-Addon-blue?style=flat-square&logo=microsoft-edge
+
+[License-url]: https://github.com/LHS183019/ByteMate/blob/main/LICENSE
+[Releases-url]: https://github.com/LHS183019/ByteMate/releases
+[Chrome-url]: #
+[Edge-url]: #
+
+---
+
+## ✨ 最近更新 (v1.0.0 - 2025.12.18)
+<div align="center">
+
+| 类型       | 描述 |
+| :--------- | :---------------------------- |
+| 🏷️ 正式上线 | **POJPaw** 释放首个稳定版本 |
+
+</div>
+
+
+## 💡 即将上线
+
+<details>
+  <summary><b>更多功能正在开发中...</b></summary>
+
+  + 👗 更丰富的宠物系统
+  + 📊 Dashboard知识点总结和题目智能推荐
+  + 🤖 更强大的AI助手
+</details>
+
+---
+
+## 📝 项目介绍
+
+**POJPaw** (by ByteMate Team) 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 扩展。它通过集成大语言模型（LLM），为学生提供实时的编程指导、思路提示、代码纠错和知识推荐，同时配备了可视化的学习仪表盘和电子宠物陪伴系统。
 
 ## ✨ 核心特性
 
 ### 🤖 智能辅助功能
 
 ![POJPaw Screenshot](readme_asset/bytemate6.png)
-
 
 *   **📚 问题引导 (Guide)**：像老师一样循循善诱，分步骤引导你思考解题方向，而不是直接给出答案。
 *   **💡 思路提示 (Hint)**：当你卡壳时，提供关键的算法思路和逻辑提示。
@@ -18,13 +61,12 @@ POJPaw (by ByteMate Team) 是一个专为 OpenJudge 平台设计的 AI 编程学
 
 ### 🖥️ 交互体验
 
-
 *   **完整题库**：POJ完整题库检索
 ![POJPaw Screenshot](readme_asset/bytemate5.png)
 *   **纯客户端架构**：无需安装本地 Node.js 服务器，安装插件即用。
 *   **多语言支持**：支持生成 **C++** 或 **Python** 代码，满足不同学习者的需求。
-*   **悬浮小猫助手**：可爱的像素风小猫常驻页面，点击即可唤起功能菜单。
 ![POJPaw Screenshot](readme_asset/bytemate.png)
+*   **悬浮小猫助手**：可爱的像素风小猫常驻页面，点击即可唤起功能菜单。
 *   **侧边栏交互**：流畅的侧边栏动画，支持 Markdown 渲染、代码高亮和一键复制。
 ![POJPaw Screenshot](readme_asset/bytemate2.png)
 *   **用户反馈系统**：对 AI 回答不满意？一键反馈，帮助我们持续优化。
@@ -46,20 +88,17 @@ POJPaw (by ByteMate Team) 是一个专为 OpenJudge 平台设计的 AI 编程学
 
 ## 🚀 安装指南
 
-### 方式一：加载已解压的扩展程序（推荐开发/测试）
+### 方式一：拉取仓库，加载已解压的扩展程序（推荐开发/测试）
 
-1.  **下载代码**：克隆本仓库或下载 ZIP 包并解压。
-2.  **打开扩展管理**：在 Chrome/Edge 浏览器地址栏输入 `chrome://extensions`。
+1.  **下载代码**：克隆本仓库或下载 Leleased ZIP 包并解压。
+2.  **打开扩展管理**：在 Chrome/Edge 浏览器地址栏输入 `chrome://extensions`/`edge://extensions` 打开扩展管理页面。
 3.  **开启开发者模式**：打开右上角的“开发者模式”开关。
 4.  **加载扩展**：点击左上角的“加载已解压的扩展程序”，选择本项目根目录（包含 `manifest.json` 的文件夹）。
 
-### 方式二：打包安装（推荐分享）
+### 方式二：浏览器扩展商店下载安装
 
-**Windows 用户:**
-在 PowerShell 中运行：
-```powershell
-.\package_extension.ps1
-```
+1. 暂未通过审核
+
 
 ## ⚙️ 配置说明
 
@@ -72,7 +111,6 @@ POJPaw (by ByteMate Team) 是一个专为 OpenJudge 平台设计的 AI 编程学
 3.  **保存**：点击保存按钮，即可开始使用。
 
 ---
-
 
 ## 💻 开发环境配置（仅开发者需要）
 
@@ -90,7 +128,6 @@ POJPaw (by ByteMate Team) 是一个专为 OpenJudge 平台设计的 AI 编程学
     npm test
     ```
     测试覆盖了 Popup 设置逻辑、侧边栏交互以及数据统计功能。
-
 
 ## 📂 项目结构
 
@@ -144,6 +181,20 @@ npm test
 >    :set ff=unix
 >    :wq
 >    ```
+
+
+## 🗺️ 打包安装
+
+**Windows 用户:**
+在 PowerShell 中运行：
+```powershell
+.\package_extension.ps1
+```
+**Mac / Linux 用户:**
+在终端运行：
+```bash
+./package_extension.sh
+```
 
 
 ## 📝 贡献
