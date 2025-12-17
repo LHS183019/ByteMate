@@ -480,6 +480,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // 通用遥测事件
+  if (request.action === 'telemetry_event') {
+    const { eventName, params } = request;
+    // console.log('[Background] Received telemetry event:', eventName, params);
+    sendTelemetryEvent(eventName, params);
+    sendResponse({ ok: true });
+    return true;
+  }
+
   sendResponse({ ok: false, error: 'Unknown action' });
 });
 
