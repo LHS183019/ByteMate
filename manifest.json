@@ -5,17 +5,17 @@
   "version": "0.1",
 
   "icons": {
-    "16": "assets/kitten/idle_facing_left/pixil-frame-0.png",
-    "48": "assets/kitten/idle_facing_left/pixil-frame-0.png",
-    "128": "assets/kitten/idle_facing_left/pixil-frame-0.png"
+    "16": "assets/kitten/idle_facing_left/pixil-frame-4.png",
+    "48": "assets/kitten/idle_facing_left/pixil-frame-4.png",
+    "128": "assets/kitten/idle_facing_left/pixil-frame-4.png"
   },
 
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
-      "16": "assets/kitten/idle_facing_left/pixil-frame-0.png",
-      "48": "assets/kitten/idle_facing_left/pixil-frame-0.png",
-      "128": "assets/kitten/idle_facing_left/pixil-frame-0.png"
+      "16": "assets/kitten/idle_facing_left/pixil-frame-4.png",
+      "48": "assets/kitten/idle_facing_left/pixil-frame-4.png",
+      "128": "assets/kitten/idle_facing_left/pixil-frame-4.png"
     }
   },
 
