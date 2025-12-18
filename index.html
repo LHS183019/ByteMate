@@ -90,5 +90,78 @@
             <p>&copy; 2025 ByteMate Team. All rights reserved.</p>
         </div>
     </footer>
+
+    <script>
+        // Google Analytics 4 配置 (来自你的 background.js)
+        const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
+        const GA_MEASUREMENT_ID = 'G-KVX34E0R5J'; 
+        const GA_API_SECRET = 'Uf8UWKvESna2dkZjXjVk9A'; 
+
+        // 获取或生成客户端 ID (使用 localStorage 替代 chrome.storage)
+        function getClientId() {
+            let clientId = localStorage.getItem('bytemate_client_id');
+            if (!clientId) {
+                clientId = crypto.randomUUID();
+                localStorage.setItem('bytemate_client_id', clientId);
+            }
+            return clientId;
+        }
+
+        // 发送遥测事件
+        async function sendTelemetryEvent(eventName, params = {}) {
+            try {
+                const clientId = getClientId();
+                const payload = {
+                    client_id: clientId,
+                    events: [{
+                        name: eventName,
+                        params: {
+                            ...params,
+                            session_id: Date.now().toString(),
+                            engagement_time_msec: 100
+                        }
+                    }]
+                };
+
+                // 使用 fetch 直接发送请求到 GA4
+                await fetch(`${GA_ENDPOINT}?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                console.log(`[Telemetry] Sent event: ${eventName}`, params);
+            } catch (error) {
+                console.warn('[Telemetry] Failed to send event:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 监听下载事件
+            const downloadLinks = document.querySelectorAll('a[download]');
+            downloadLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const filename = this.getAttribute('download');
+                    // 直接调用发送函数
+                    sendTelemetryEvent('download_item', {
+                        filename: filename || 'unknown',
+                        timestamp: Date.now(),
+                        source: 'website_click'
+                    });
+                });
+            });
+
+            // 监听 GitHub 链接点击事件
+            const githubLinks = document.querySelectorAll('a[href*="github.com"]');
+            githubLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const url = this.getAttribute('href');
+                    sendTelemetryEvent('github_visit', {
+                        url: url,
+                        timestamp: Date.now(),
+                        source: 'website_click'
+                    });
+                });
+            });
+        });
+    </script>
 </body>
 </html>
