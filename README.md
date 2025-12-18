@@ -92,7 +92,7 @@
 
 ### 方式一：拉取仓库，加载已解压的扩展程序（推荐开发/测试）
 
-1.  **下载代码**：克隆本仓库或下载 Leleased ZIP 包并解压。
+1.  **下载代码**：克隆本仓库或下载 [Released ZIP](https://github.com/LHS183019/ByteMate/releases) 包并解压。
 2.  **打开扩展管理**：在 Chrome/Edge 浏览器地址栏输入 `chrome://extensions`/`edge://extensions` 打开扩展管理页面。
 3.  **开启开发者模式**：打开右上角的“开发者模式”开关。
 4.  **加载扩展**：点击左上角的“加载已解压的扩展程序”，选择本项目根目录（包含 `manifest.json` 的文件夹）。
