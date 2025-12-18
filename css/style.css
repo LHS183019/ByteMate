@@ -14,6 +14,16 @@
     --font-main: 'Noto Sans SC', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
+/* Page Transitions */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
