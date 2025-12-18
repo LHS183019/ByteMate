@@ -5,6 +5,7 @@
     --accent-color: #ff4b1f;
     --text-main: #2c3e50;
     --text-light: #546e7a;
+    --text-light-light: #6bb2d6bf;
     --bg-color: #f0f2f5;
     --card-bg: #ffffff;
     --shadow-sm: 0 2px 8px rgba(0,0,0,0.05);
@@ -62,6 +63,14 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.handbook-link {
+    margin-left: 5px;
+    font-size: 0.9rem;
+    color: var(--text-light-light);
+    text-decoration: none;
+    font-weight: 500;
 }
 
 .logo {
