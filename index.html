@@ -7,6 +7,16 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KVX34E0R5J"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+    
+      gtag('config', 'G-KVX34E0R5J');
+    </script>
 </head>
 <body>
     <div class="background-decoration"></div>
@@ -39,7 +49,10 @@
                 <div class="project-card">
                     <div class="card-header">
                         <h3>POJPaw </h3> 
-                        <span class="badge">Chrome Extension</span>
+                        <div style="display: flex;gap: 8px;flex-wrap: wrap;justify-content: flex-end;">
+                            <span class="badge" style="background: rgba(0, 0, 0, 0.05); color: #546e7a;">V1.0.0</span>
+                            <span class="badge">Chrome Extension</span>
+                        </div>
                     </div>
                     <div class="card-body">
                         <p>POJPaw 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 扩展。<a href="./handbook.pdf" download="handbook.pdf" target="_blank" class="handbook-link">
@@ -92,59 +105,16 @@
     </footer>
 
     <script>
-        // Google Analytics 4 配置 (来自你的 background.js)
-        const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
-        const GA_MEASUREMENT_ID = 'G-KVX34E0R5J'; 
-        const GA_API_SECRET = 'Uf8UWKvESna2dkZjXjVk9A'; 
-
-        // 获取或生成客户端 ID (使用 localStorage 替代 chrome.storage)
-        function getClientId() {
-            let clientId = localStorage.getItem('bytemate_client_id');
-            if (!clientId) {
-                clientId = crypto.randomUUID();
-                localStorage.setItem('bytemate_client_id', clientId);
-            }
-            return clientId;
-        }
-
-        // 发送遥测事件
-        async function sendTelemetryEvent(eventName, params = {}) {
-            try {
-                const clientId = getClientId();
-                const payload = {
-                    client_id: clientId,
-                    events: [{
-                        name: eventName,
-                        params: {
-                            ...params,
-                            session_id: Date.now().toString(),
-                            engagement_time_msec: 100
-                        }
-                    }]
-                };
-
-                // 使用 fetch 直接发送请求到 GA4
-                await fetch(`${GA_ENDPOINT}?measurement_id=${GA_MEASUREMENT_ID}&api_secret=${GA_API_SECRET}`, {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-                console.log(`[Telemetry] Sent event: ${eventName}`, params);
-            } catch (error) {
-                console.warn('[Telemetry] Failed to send event:', error);
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             // 监听下载事件
             const downloadLinks = document.querySelectorAll('a[download]');
             downloadLinks.forEach(link => {
                 link.addEventListener('click', function() {
                     const filename = this.getAttribute('download');
-                    // 直接调用发送函数
-                    sendTelemetryEvent('download_item', {
-                        filename: filename || 'unknown',
-                        timestamp: Date.now(),
-                        source: 'website_click'
+                    // 使用 gtag 发送事件
+                    gtag('event', 'download_item', {
+                        'filename': filename || 'unknown',
+                        'source': 'website_click'
                     });
                 });
             });
@@ -154,10 +124,9 @@
             githubLinks.forEach(link => {
                 link.addEventListener('click', function() {
                     const url = this.getAttribute('href');
-                    sendTelemetryEvent('github_visit', {
-                        url: url,
-                        timestamp: Date.now(),
-                        source: 'website_click'
+                    gtag('event', 'github_visit', {
+                        'url': url,
+                        'source': 'website_click'
                     });
                 });
             });
