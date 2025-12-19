@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ByteMate - 有温度的 AI Software</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KVX34E0R5J"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+    
+      gtag('config', 'G-KVX34E0R5J');
+    </script>
+</head>
+<body>
+    <div class="background-decoration"></div>
+    
+    <header class="site-header">
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fa-solid fa-robot"></i> ByteMate
+            </div>
+            <nav class="site-nav">
+                <a href="#" class="active"><i class="fa-solid fa-home"></i> 首页</a>
+                <a href="./teamBonding.html"><i class="fa-solid fa-users"></i> 团建活动</a>
+                <a href="./teamContract.md" download="teamContract.md"><i class="fa-solid fa-file-contract"></i> 团队公约</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container main-content fade-in">
+        <section class="hero-section">
+            <div class="hero-text">
+                <h1>Hello, We are <span class="highlight">ByteMate</span></h1>
+                <p class="subtitle">致力于开发有温度的 AI Software</p>
+                <p class="description">目前聚焦在搭建好玩、好用的智能学习辅助软件，让技术更有温度，让学习更有效率。</p>
+            </div>
+        </section>
+
+        <section class="projects-section">
+            <h2 class="section-title"><i class="fa-solid fa-code-branch"></i> 项目列表</h2>
+            <div class="projects-grid">
+                <div class="project-card">
+                    <div class="card-header">
+                        <h3>POJPaw </h3> 
+                        <div style="display: flex;gap: 8px;flex-wrap: wrap;justify-content: flex-end;">
+                            <span class="badge" style="background: rgba(0, 0, 0, 0.05); color: #546e7a;">V1.0.1</span>
+                            <span class="badge">Chrome Extension</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p>POJPaw 是一个专为 OpenJudge 平台设计的 AI 编程学习助手 Chrome 扩展。<a href="./handbook.pdf" download="handbook.pdf" target="_blank" class="handbook-link">
+                        查看使用说明
+                        </a></p>
+                        
+                    </div>
+                    <div class="card-footer" style="display: flex;gap: 15px;justify-content: flex-start;flex-wrap: nowrap;">
+                        <a href="./distribute/POJPaw_Extension.zip" download="POJPaw_Extension.zip" target="_blank" class="btn btn-primary">
+                            <i class="fa-solid fa-download"></i>下载
+                        </a>
+
+                        <a href="https://github.com/LHS183019/ByteMate/tree/pojpaw?tab=readme-ov-file" target="_blank" class="btn btn-primary" style="background: #333;">
+                            <i class="fa-brands fa-github"></i> 查看仓库
+                        </a>
+                    </div>
+                </div>
+                <!-- Placeholder for future projects -->
+                <div class="project-card placeholder-card">
+                    <div class="card-body" style="display:flex;flex-direction: column;justify-content: center; margin-bottom: 0">
+                        <i class="fa-solid fa-rocket"></i>
+                        <p>更多精彩项目正在孵化中...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="contact-section" id="contact" style="margin-top: 60px;">
+            <h2 class="section-title"><i class="fa-solid fa-envelope"></i> 联系我们</h2>
+            <div class="project-card" style="text-align: center; align-items: center;">
+                <div class="card-body" style="margin-bottom: 20px; margin-top: 20px;">
+                    <p style="font-size: 1.1rem; margin-bottom: 20px;">如果您对我们的项目感兴趣，或者有任何建议，欢迎联系我们！</p>
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <a href="mailto:2400013077@stu.pku.edu.cn" class="btn btn-primary" style="background: #0072ff;">
+                            <i class="fa-solid fa-paper-plane"></i> 发送邮件
+                        </a>
+                        <a href="https://github.com/LHS183019/ByteMate" target="_blank" class="btn btn-primary" style="background: #333;">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; 2025 ByteMate Team. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 监听下载事件
+            const downloadLinks = document.querySelectorAll('a[download]');
+            downloadLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const filename = this.getAttribute('download');
+                    // 使用 gtag 发送事件
+                    gtag('event', 'download_item', {
+                        'filename': filename || 'unknown',
+                        'source': 'website_click'
+                    });
+                });
+            });
+
+            // 监听 GitHub 链接点击事件
+            const githubLinks = document.querySelectorAll('a[href*="github.com"]');
+            githubLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const url = this.getAttribute('href');
+                    gtag('event', 'github_visit', {
+                        'url': url,
+                        'source': 'website_click'
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

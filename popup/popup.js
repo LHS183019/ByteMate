@@ -35,7 +35,8 @@ export function initDOM() {
     dashboardBtn: document.getElementById('dashboard-btn'),
     problemsetBtn: document.getElementById('problemset-btn'),
     statusMessage: document.getElementById('status-message'),
-    helpLink: document.getElementById('help-link')
+    updateNotification: document.getElementById('update-notification'),
+    appVersion: document.getElementById('app-version')
   };
 }
 
@@ -43,9 +44,66 @@ export function initDOM() {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Popup 已加载');
   initDOM();
+  
+  // 显示当前版本号
+  if (DOM.appVersion) {
+    const manifest = chrome.runtime.getManifest();
+    DOM.appVersion.textContent = manifest.version;
+  }
+
   await loadSettings();
   attachEventListeners();
+  checkUpdate();
 });
+
+// ============ 版本检测 ============
+async function checkUpdate() {
+  try {
+    const manifest = chrome.runtime.getManifest();
+    const currentVersion = manifest.version;
+    
+    // 获取 GitHub 最新 Release
+    const response = await fetch('https://api.github.com/repos/LHS183019/ByteMate/releases/latest');
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    const latestTag = data.tag_name;
+    
+    // 简单的版本比较逻辑：移除 'v' 前缀后比较
+    // 如果 tag 是 'POJPaw' 这种非版本号格式，可能会导致误判，所以这里做一个简单的正则检查
+    const versionRegex = /^v?(\d+\.\d+\.\d+)$/;
+    const match = latestTag.match(versionRegex);
+    
+    if (match) {
+      const latestVersion = match[1];
+      if (compareVersions(latestVersion, currentVersion) > 0) {
+        showUpdateNotification(latestVersion);
+      }
+    }
+  } catch (error) {
+    console.warn('检查更新失败:', error);
+  }
+}
+
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
+function showUpdateNotification(version) {
+  if (!DOM.updateNotification) return;
+  
+  DOM.updateNotification.style.display = 'flex';
+  DOM.updateNotification.querySelector('.message').textContent = `发现新版本 ${version}！点击下载`;
+}
 
 // ============ 加载设置 ============
 /**
@@ -143,11 +201,12 @@ export function attachEventListeners() {
   // 打开题库
   DOM.problemsetBtn.addEventListener('click', openProblemSet);
 
-  // 帮助链接
-  DOM.helpLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    showStatus('帮助功能开发中...', 'info');
-  });
+  // 更新通知点击
+  if (DOM.updateNotification) {
+    DOM.updateNotification.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://lhs183019.github.io/ByteMate/' });
+    });
+  }
 }
 
 // ============ 保存设置 ============
