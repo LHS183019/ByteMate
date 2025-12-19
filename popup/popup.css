@@ -50,6 +50,33 @@ body {
   font-weight: 400;
 }
 
+/* ============ 更新通知栏 ============ */
+.update-notification {
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #bbdefb;
+  transition: background-color 0.2s;
+}
+
+.update-notification:hover {
+  background: #bbdefb;
+}
+
+.update-notification .icon {
+  font-size: 16px;
+}
+
+.update-notification .message {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+}
+
 /* ============ 主要内容区域 ============ */
 .popup-main {
   flex: 1;

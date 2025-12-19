@@ -33,7 +33,8 @@
     "https://open.bigmodel.cn/*",
     "https://api.openai.com/*",
     "https://api.groq.com/*",
-    "https://www.google-analytics.com/*"
+    "https://www.google-analytics.com/*",
+    "https://api.github.com/*"
   ],
 
   "background": {
