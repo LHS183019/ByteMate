@@ -156,7 +156,7 @@ body {
 
 .projects-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
     gap: 30px;
 }
 
@@ -169,6 +169,8 @@ body {
     border: 1px solid rgba(0,0,0,0.05);
     display: flex;
     flex-direction: column;
+    container-type: inline-size;
+    container-name: card;
 }
 
 .project-card:hover {
@@ -282,5 +284,61 @@ body {
         width: 100%;
         justify-content: center;
         flex-wrap: wrap;
+    }
+}
+
+/* Container Queries for Project Card */
+@container card (max-width: 420px) {
+    .btn-repo .btn-text {
+        display: none;
+    }
+    .btn-repo {
+        padding: 10px 12px;
+    }
+}
+
+@container card (max-width: 320px) {
+    .btn-store .btn-text {
+        display: none;
+    }
+    .btn-store {
+        padding: 10px 12px;
+    }
+}
+
+@container card (max-width: 250px) {
+    .btn-download .btn-text {
+        display: none;
+    }
+    .btn-download {
+        padding: 10px 12px;
+    }
+}
+
+/* Fallback Media Query for Mobile */
+@media (max-width: 420px) {
+    .btn-repo .btn-text {
+        display: none;
+    }
+    .btn-repo {
+        padding: 10px 12px;
+    }
+}
+
+@media (max-width: 320px) {
+    .btn-store .btn-text {
+        display: none;
+    }
+    .btn-store {
+        padding: 10px 12px;
+    }
+}
+
+@media (max-width: 250px) {
+    .btn-download .btn-text {
+        display: none;
+    }
+    .btn-download {
+        padding: 10px 12px;
     }
 }

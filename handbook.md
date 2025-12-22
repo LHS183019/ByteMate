@@ -8,7 +8,6 @@
 查看我们的[隐私政策](https://github.com/LHS183019/ByteMate/blob/pojpaw/PRIVACY_POLICY.md)。
 
 
-
 ## 🚀 安装指南
 
 ### 方式一：下载打包好的扩展程序
@@ -20,8 +19,8 @@
 
 ### 方式二：浏览器扩展商店
 
-暂未通过审核，日后上线。
-
+1. Edge 商店：[点击前往下载](https://microsoftedge.microsoft.com/addons/detail/pojpaw-ai-openjudge-hel/blghlnhipannnjeddjbkpdjiikeaoica)
+2. Chrome 商店：暂未通过审核
 
 
 ## ⚙️ 配置说明
@@ -47,11 +46,11 @@
 
 点击浏览器右上角的插件图标，可打开 POJPaw 设置面板，可设置：
 
-+ LLM模型
++ LLM模型(DeepSeek, Qwen, ChatGPT, Claude, Gemini)
 
 + 您的 API Key
 
-+ 您偏好的编程语言。
++ 您偏好的编程语言(C++ / Python)。
 
 在设置面板下方可以找到打开 Dashboard 和 题库 的链接
 
@@ -67,6 +66,6 @@ Problemset中集成了openjudge的所有题目，并对题目进行了分类，�
 
 ---
 
-*Last Updated: 2025-12-18*
+*Last Updated: 2025-12-22*
 
 &copy; 2025 ByteMate Team.

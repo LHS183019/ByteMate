@@ -50,7 +50,7 @@
                     <div class="card-header">
                         <h3>POJPaw </h3> 
                         <div style="display: flex;gap: 8px;flex-wrap: wrap;justify-content: flex-end;">
-                            <span class="badge" style="background: rgba(0, 0, 0, 0.05); color: #546e7a;">V1.0.1</span>
+                            <span class="badge" style="background: rgba(0, 0, 0, 0.05); color: #546e7a;">V1.0.2</span>
                             <span class="badge">Chrome Extension</span>
                         </div>
                     </div>
@@ -61,12 +61,16 @@
                         
                     </div>
                     <div class="card-footer" style="display: flex;gap: 15px;justify-content: flex-start;flex-wrap: nowrap;">
-                        <a href="./distribute/POJPaw_Extension.zip" download="POJPaw_Extension.zip" data-version="V1.0.1" target="_blank" class="btn btn-primary">
-                            <i class="fa-solid fa-download"></i>下载
+                        <a href="./distribute/POJPaw_Extension.zip" download="POJPaw_Extension.zip" data-version="V1.0.2" target="_blank" class="btn btn-primary responsive-btn btn-download">
+                            <i class="fa-solid fa-download"></i><span class="btn-text">下载</span>
                         </a>
 
-                        <a href="https://github.com/LHS183019/ByteMate/tree/pojpaw?tab=readme-ov-file" target="_blank" class="btn btn-primary" style="background: #333;">
-                            <i class="fa-brands fa-github"></i> 查看仓库
+                        <a href="https://microsoftedge.microsoft.com/addons/detail/pojpaw-ai-openjudge-hel/blghlnhipannnjeddjbkpdjiikeaoica" target="_blank" class="btn btn-primary responsive-btn btn-store" style="background: #0078d7;">
+                            <i class="fa-brands fa-edge"></i><span class="btn-text">Edge商店</span>
+                        </a>
+
+                        <a href="https://github.com/LHS183019/ByteMate/tree/pojpaw?tab=readme-ov-file" target="_blank" class="btn btn-primary responsive-btn btn-repo" style="background: #333;">
+                            <i class="fa-brands fa-github"></i><span class="btn-text">查看仓库</span>
                         </a>
                     </div>
                 </div>
@@ -127,6 +131,18 @@
                 link.addEventListener('click', function() {
                     const url = this.getAttribute('href');
                     gtag('event', 'github_visit', {
+                        'url': url,
+                        'source': 'website_click'
+                    });
+                });
+            });
+
+            // 监听 Edge 商店链接点击事件
+            const edgeLinks = document.querySelectorAll('a[href*="microsoftedge.microsoft.com"]');
+            edgeLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const url = this.getAttribute('href');
+                    gtag('event', 'edge_store_visit', {
                         'url': url,
                         'source': 'website_click'
                     });
