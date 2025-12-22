@@ -17,7 +17,7 @@
 [License-url]: https://github.com/LHS183019/ByteMate/blob/pojpaw/LICENSE
 [Releases-url]: https://github.com/LHS183019/ByteMate/releases
 [Chrome-url]: #
-[Edge-url]: #
+[Edge-url]: https://microsoftedge.microsoft.com/addons/detail/pojpaw-ai-openjudge-hel/blghlnhipannnjeddjbkpdjiikeaoica
 
 ---
 
@@ -39,6 +39,7 @@
 | 类型       | 描述 |
 | :--------- | :---------------------------- |
 | 🚀 新功能 | 新增版本自动检测与更新通知功能 |
+| 📢 商店 | v1.0.1 已发布至 Edge 扩展商店 |
 
 </div>
 
@@ -111,7 +112,8 @@
 
 ### 方式二：浏览器扩展商店下载安装
 
-1. 暂未通过审核
+1. **Edge 商店**：[点击前往下载](https://microsoftedge.microsoft.com/addons/detail/pojpaw-ai-openjudge-hel/blghlnhipannnjeddjbkpdjiikeaoica)
+2. **Chrome 商店**：暂未通过审核
 
 
 ## ⚙️ 配置说明
