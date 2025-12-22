@@ -19,7 +19,10 @@ const STORAGE_KEYS = {
 
 const MODELS = {
   deepseek: 'DeepSeek',
-  qwen: 'Qwen (通义千问)'
+  qwen: 'Qwen (通义千问)',
+  openai: 'OpenAI (GPT-4o)',
+  gemini: 'Google Gemini',
+  claude: 'Anthropic Claude'
 };
 
 // ============ DOM 元素缓存 ============

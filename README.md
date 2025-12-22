@@ -106,7 +106,7 @@
 
 安装完成后，点击浏览器右上角的插件图标（POJPaw 图标）打开设置面板：
 
-1.  **选择模型**：暂时支持 DeepSeek, Qwen (通义千问) 
+1.  **选择模型**：支持 DeepSeek, Qwen (通义千问), OpenAI (GPT-4o), Google Gemini, Anthropic Claude 等。
 2.  **配置 API Key**：
     *   输入您的 API Key。
     *   或者**留空**，你仍然可以拷贝prompt到自己偏好的软件使用。
