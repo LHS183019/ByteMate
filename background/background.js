@@ -11,19 +11,28 @@ const STORAGE_KEYS = {
 const PROVIDER_CONFIG = {
   deepseek: {
     baseUrl: 'https://api.deepseek.com/v1',
-    model: 'deepseek-chat'
+    model: 'deepseek-chat',
+    provider: 'openai'
   },
   qwen: {
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    model: 'qwen-plus'
+    model: 'qwen-plus',
+    provider: 'openai'
   },
   openai: {
     baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-4'
+    model: 'gpt-4o',
+    provider: 'openai'
   },
-  groq: {
-    baseUrl: 'https://api.groq.com/openai/v1',
-    model: 'llama3-70b-8192'
+  gemini: {
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    model: 'gemini-1.5-flash',
+    provider: 'openai'
+  },
+  claude: {
+    baseUrl: 'https://api.anthropic.com/v1',
+    model: 'claude-3-5-sonnet-20240620',
+    provider: 'anthropic'
   }
 };
 
@@ -289,7 +298,7 @@ function getLLMConfig() {
     'OpenAI GPT-4': 'openai',
     'DeepSeek': 'deepseek',
     'Qwen (通义千问)': 'qwen',
-    'Groq': 'groq'
+    'Anthropic Claude': 'claude'
   };
   
   const normalizedProvider = providerMap[appConfig.model] || 'deepseek';
@@ -605,19 +614,37 @@ async function invokeAIFeature(feature, context, sendResponse) {
     
     console.log('[AI-Feature] Sending request to LLM Provider:', llmConfig.baseUrl);
     console.log('[AI-Feature] Final Prompt:', prompt);
-    const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${llmConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: llmConfig.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.6,
-        max_tokens: 3000
-      })
-    });
+
+    let response;
+    if (llmConfig.provider === 'anthropic') {
+      response = await fetch(`${llmConfig.baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': llmConfig.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: llmConfig.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 3000
+        })
+      });
+    } else {
+      response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${llmConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: llmConfig.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.6,
+          max_tokens: 3000
+        })
+      });
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -628,7 +655,15 @@ async function invokeAIFeature(feature, context, sendResponse) {
     }
 
     const data = await response.json();
-    const result = data.choices[0]?.message?.content || '';
+    let result = '';
+    
+    if (llmConfig.provider === 'anthropic') {
+      result = data.content?.[0]?.text || '';
+    } else {
+      // 使用可选链 ?. 访问数组索引，防止 choices 为空或 undefined 时报错
+      // Gemini 的 OpenAI 兼容接口通常返回相同的结构，但为了稳健性增加此检查
+      result = data.choices?.[0]?.message?.content || '';
+    }
 
     console.log('[AI-Feature] Success');
 
@@ -726,20 +761,38 @@ async function invokeAIFeatureStream(context, port) {
     console.log('[AI-Stream] Sending request to LLM Provider:', llmConfig.baseUrl);
     console.log('[AI-Stream] Final Prompt:', prompt);
 
-    const response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${llmConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: llmConfig.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.6,
-        max_tokens: 3000,
-        stream: true
-      })
-    });
+    let response;
+    if (llmConfig.provider === 'anthropic') {
+      response = await fetch(`${llmConfig.baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': llmConfig.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: llmConfig.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 3000,
+          stream: true
+        })
+      });
+    } else {
+      response = await fetch(`${llmConfig.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${llmConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: llmConfig.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.6,
+          max_tokens: 3000,
+          stream: true
+        })
+      });
+    }
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -783,20 +836,45 @@ async function invokeAIFeatureStream(context, port) {
         const trimmedLine = line.trim();
         if (!trimmedLine) continue;
 
-        if (trimmedLine.startsWith('data: ')) {
-          const jsonStr = trimmedLine.slice(6).trim();
-          if (jsonStr === '[DONE]') {
-            // 流结束标志
+        if (llmConfig.provider === 'anthropic') {
+          // Anthropic SSE format
+          if (trimmedLine.startsWith('event: ')) {
+            // We can ignore event lines for simple text extraction, 
+            // or use them to filter 'content_block_delta'
             continue;
           }
-          try {
-            const data = JSON.parse(jsonStr);
-            const content = data.choices[0]?.delta?.content;
-            if (content) {
-              port.postMessage({ type: 'chunk', data: content });
+          if (trimmedLine.startsWith('data: ')) {
+            const jsonStr = trimmedLine.slice(6).trim();
+            try {
+              const data = JSON.parse(jsonStr);
+              if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+                const content = data.delta.text;
+                if (content) {
+                  port.postMessage({ type: 'chunk', data: content });
+                }
+              }
+            } catch (e) {
+              // Ignore parse errors
             }
-          } catch (e) {
-            // 忽略解析错误（可能是非JSON数据或不完整数据）
+          }
+        } else {
+          // OpenAI SSE format
+          if (trimmedLine.startsWith('data: ')) {
+            const jsonStr = trimmedLine.slice(6).trim();
+            if (jsonStr === '[DONE]') {
+              // 流结束标志
+              continue;
+            }
+            try {
+              const data = JSON.parse(jsonStr);
+              // 使用可选链 ?. 访问数组索引，增强健壮性
+              const content = data.choices?.[0]?.delta?.content;
+              if (content) {
+                port.postMessage({ type: 'chunk', data: content });
+              }
+            } catch (e) {
+              // 忽略解析错误（可能是非JSON数据或不完整数据）
+            }
           }
         }
       }

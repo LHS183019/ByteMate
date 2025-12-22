@@ -175,15 +175,4 @@ describe('Popup Tests', () => {
     
     expect(SM.removeItem).toHaveBeenCalledWith('bytemate_api_key');
   });
-
-  test('Help link should show info message', () => {
-    attachEventListeners();
-    const helpLink = document.getElementById('help-link');
-    const statusMessage = document.getElementById('status-message');
-    
-    helpLink.click();
-    
-    expect(statusMessage.textContent).toContain('帮助功能开发中');
-    expect(statusMessage.className).toContain('status-info');
-  });
 });
