@@ -669,22 +669,6 @@ function setupEventListeners() {
       console.log('✅ 数据刷新完成');
     });
   }
-
-  // 重置数据按钮
-  const resetBtn = document.getElementById('reset-data-btn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', async () => {
-      if (confirm('⚠️ 确定要清空所有数据吗？\n此操作将删除所有学习记录、宠物状态和设置，且无法恢复！')) {
-        console.log('🗑️ 正在重置数据...');
-        showLoading(true);
-        await storage.clearAll();
-        // 重新初始化存储结构
-        await storage.init();
-        // 重新加载页面以重置状态
-        window.location.reload();
-      }
-    });
-  }
   
   // 为题目列表项添加点击事件（跳转到题目页面）
   document.addEventListener('click', (e) => {

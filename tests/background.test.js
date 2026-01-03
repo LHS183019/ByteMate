@@ -26,6 +26,11 @@ describe('Background Service Tests', () => {
           set: jest.fn((items, callback) => callback && callback()),
           remove: jest.fn((keys, callback) => callback && callback())
         },
+        sync: {
+          get: jest.fn((keys, callback) => callback({})),
+          set: jest.fn((items, callback) => callback && callback()),
+          remove: jest.fn((keys, callback) => callback && callback())
+        },
         onChanged: { addListener: jest.fn() }
       },
       contextMenus: {
@@ -96,6 +101,75 @@ describe('Background Service Tests', () => {
     expect(bgService.appConfig.model).toBe('new-model');
     expect(bgService.appConfig.apiKey).toBe('new-key');
     expect(bgService.appConfig.targetLanguage).toBe('python');
+  });
+
+  test('Sync merges problem lists correctly', () => {
+    // Setup existing local data
+    const localProblems = ['1001', '1002'];
+    global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+      if (Array.isArray(keys) && keys.includes('oj_problems_solved')) {
+        callback({ oj_problems_solved: localProblems });
+      } else {
+        callback({});
+      }
+    });
+
+    // Simulate sync storage change with new data
+    const changes = {
+      oj_problems_solved: { newValue: ['1002', '1003'] }
+    };
+    
+    bgService.storageChangeListener(changes, 'sync');
+    
+    // Verify local.set was called with merged list
+    expect(global.chrome.storage.local.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oj_problems_solved: expect.arrayContaining(['1001', '1002', '1003'])
+      }),
+      expect.any(Function) // The callback argument
+    );
+    
+    // Verify length is correct (3 items)
+    const setCall = global.chrome.storage.local.set.mock.calls.find(call => call[0].oj_problems_solved);
+    expect(setCall[0].oj_problems_solved.length).toBe(3);
+  });
+
+  test('initializeDataSync pushes local to sync if local is newer', async () => {
+    // Setup: Local has data (newer), Sync is empty
+    const localData = {
+      oj_last_update: 1000,
+      bytemate_model: 'local-model',
+      oj_problems_solved: ['1001']
+    };
+    const syncData = {}; // Empty sync
+
+    global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+      // If requesting specific keys (SYNC_KEYS), return full data
+      if (Array.isArray(keys) && keys.includes('bytemate_model')) {
+        callback(localData);
+      } else {
+        // Initial check requests ['oj_last_update', 'oj_problems_solved']
+        callback({
+          oj_last_update: localData.oj_last_update,
+          oj_problems_solved: localData.oj_problems_solved
+        });
+      }
+    });
+
+    global.chrome.storage.sync.get.mockImplementation((keys, callback) => {
+      callback(syncData);
+    });
+
+    await bgService.initializeDataSync();
+
+    // Verify sync.set was called with local data
+    expect(global.chrome.storage.sync.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bytemate_model: 'local-model',
+        oj_last_update: 1000
+      }),
+      expect.any(Function)
+    );
   });
 
   test('initializeConfig loads settings from storage', async () => {

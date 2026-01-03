@@ -126,9 +126,23 @@ function initializeConfig() {
   return configInitPromise;
 }
 
-// 监听存储变化，实时更新配置
+// 需要同步到 Cloud 的键列表
+const SYNC_KEYS = [
+  'bytemate_model',
+  'bytemate_api_key',
+  'bytemate_target_language',
+  'oj_pet_data',
+  'oj_problems_solved',
+  'oj_knowledge_tags',
+  'oj_learning_stats',
+  'oj_last_update'
+];
+
+// 监听存储变化，实时更新配置及同步数据
 chrome.storage.onChanged.addListener((changes, namespace) => {
+  // 1. 处理 Local 变化 -> 更新内存配置 & 同步到 Sync
   if (namespace === 'local') {
+    // 更新内存配置
     if (changes[STORAGE_KEYS.MODEL]) {
       appConfig.model = changes[STORAGE_KEYS.MODEL].newValue;
       console.log('[Background] Model updated:', appConfig.model);
@@ -141,8 +155,196 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
       appConfig.targetLanguage = changes[STORAGE_KEYS.TARGET_LANGUAGE].newValue;
       console.log('[Background] Target language updated:', appConfig.targetLanguage);
     }
+
+    // 同步到 Cloud (防抖动处理建议在生产环境中添加，这里简化处理)
+    const syncUpdates = {};
+    let hasSyncUpdates = false;
+
+    SYNC_KEYS.forEach(key => {
+      if (changes[key]) {
+        syncUpdates[key] = changes[key].newValue;
+        hasSyncUpdates = true;
+      }
+    });
+
+    if (hasSyncUpdates) {
+      // 添加最后更新时间
+      const now = Date.now();
+      syncUpdates['oj_last_update'] = now;
+      
+      chrome.storage.sync.set(syncUpdates, () => {
+        if (chrome.runtime.lastError) {
+          console.warn('[Sync] Failed to sync to cloud:', chrome.runtime.lastError);
+        } else {
+          console.log('[Sync] Synced to cloud:', Object.keys(syncUpdates));
+        }
+      });
+    }
+  }
+
+  // 2. 处理 Sync 变化 -> 更新到 Local (实现双向同步)
+  if (namespace === 'sync') {
+    const localUpdates = {};
+    let hasLocalUpdates = false;
+
+    // 特殊处理：合并题目列表
+    if (changes['oj_problems_solved']) {
+      const newSyncProblems = changes['oj_problems_solved'].newValue || [];
+      
+      // 获取当前 Local 题目列表进行合并
+      chrome.storage.local.get(['oj_problems_solved'], (result) => {
+        const currentLocalProblems = result.oj_problems_solved || [];
+        const mergedProblems = [...new Set([...currentLocalProblems, ...newSyncProblems])];
+        
+        // 只有当合并后的列表比当前 Local 多时才更新
+        if (mergedProblems.length > currentLocalProblems.length) {
+          chrome.storage.local.set({ 'oj_problems_solved': mergedProblems }, () => {
+            console.log('[Sync] Merged problems list from cloud');
+            hydrateProblemDetails(mergedProblems);
+          });
+        }
+      });
+    }
+
+    SYNC_KEYS.forEach(key => {
+      // 跳过已特殊处理的键
+      if (key === 'oj_problems_solved') return;
+
+      if (changes[key] && changes[key].newValue !== undefined) {
+        // 对于其他键，简单的冲突解决：以最新的 Sync 事件为准
+        localUpdates[key] = changes[key].newValue;
+        hasLocalUpdates = true;
+      }
+    });
+
+    if (hasLocalUpdates) {
+      console.log('[Sync] Received updates from cloud, updating local...');
+      chrome.storage.local.set(localUpdates);
+    }
   }
 });
+
+/**
+ * 补充缺失的题目详情
+ * 当从 Sync 恢复了题目 ID 列表但缺少详情时调用
+ */
+async function hydrateProblemDetails(problemIds) {
+  if (!Array.isArray(problemIds) || problemIds.length === 0) return;
+
+  try {
+    const problems = await loadProblemSet();
+    const updates = {};
+    let updateCount = 0;
+
+    // 检查哪些题目缺少详情
+    const keysToCheck = problemIds.map(id => `oj_problem_details_${id}`);
+    const existing = await new Promise(resolve => chrome.storage.local.get(keysToCheck, resolve));
+
+    for (const id of problemIds) {
+      const key = `oj_problem_details_${id}`;
+      if (!existing[key]) {
+        const problemInfo = problems.find(p => p.id === id);
+        if (problemInfo) {
+          updates[key] = {
+            id: id,
+            title: problemInfo.title,
+            status: 'ac',
+            tags: [...(problemInfo.algorithms || []), ...(problemInfo.data_structures || [])],
+            solvedAt: Date.now(), // 无法恢复准确时间，使用当前时间或标记为"恢复数据"
+            isRestored: true
+          };
+          updateCount++;
+        }
+      }
+    }
+
+    if (updateCount > 0) {
+      await new Promise(resolve => chrome.storage.local.set(updates, resolve));
+      console.log(`[Sync] Hydrated ${updateCount} missing problem details`);
+    }
+  } catch (e) {
+    console.error('[Sync] Failed to hydrate problem details:', e);
+  }
+}
+
+/**
+ * 初始化数据同步
+ * 检查 Local 是否为空/过时，如果是则从 Sync 拉取
+ */
+async function initializeDataSync() {
+  try {
+    const localData = await new Promise(resolve => chrome.storage.local.get(['oj_last_update', 'oj_problems_solved'], resolve));
+    const syncData = await new Promise(resolve => chrome.storage.sync.get(null, resolve)); // 获取所有 Sync 数据
+
+    const localTime = localData.oj_last_update || 0;
+    const syncTime = syncData.oj_last_update || 0;
+    const hasLocalData = localData.oj_problems_solved && localData.oj_problems_solved.length > 0;
+
+    console.log(`[Sync] Init check - Local: ${localTime}, Sync: ${syncTime}, HasLocal: ${hasLocalData}`);
+
+    // 策略：
+    // 1. 如果 Local 几乎为空 (无题目记录) 且 Sync 有数据 -> 强制拉取 Sync
+    // 2. 如果 Sync 时间明显晚于 Local -> 拉取 Sync (合并)
+    
+    if ((!hasLocalData && syncTime > 0) || (syncTime > localTime)) {
+      console.log('[Sync] Sync is newer or Local is empty. Restoring from cloud...');
+      
+      const updates = {};
+      
+      // 特殊处理：合并题目列表
+      if (syncData['oj_problems_solved']) {
+        const localProblems = localData.oj_problems_solved || [];
+        const syncProblems = syncData['oj_problems_solved'] || [];
+        const mergedProblems = [...new Set([...localProblems, ...syncProblems])];
+        updates['oj_problems_solved'] = mergedProblems;
+      }
+
+      SYNC_KEYS.forEach(key => {
+        if (key === 'oj_problems_solved') return; // 已处理
+        if (syncData[key] !== undefined) {
+          updates[key] = syncData[key];
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await new Promise(resolve => chrome.storage.local.set(updates, resolve));
+        console.log('[Sync] Restore complete.');
+        
+        // 触发详情补充
+        if (updates['oj_problems_solved']) {
+          hydrateProblemDetails(updates['oj_problems_solved']);
+        }
+        
+        // 如果合并导致数据变化，反向推送到 Sync
+        if (updates['oj_problems_solved'] && updates['oj_problems_solved'].length > (syncData['oj_problems_solved'] || []).length) {
+             chrome.storage.sync.set({ 'oj_problems_solved': updates['oj_problems_solved'] });
+        }
+      }
+    } else if (localTime > syncTime) {
+      // Local 较新，推送到 Sync (可选，防止 Sync 太旧)
+      console.log('[Sync] Local is newer, pushing to cloud...');
+      
+      // 获取需要同步的 Local 数据
+      const localFullData = await new Promise(resolve => chrome.storage.local.get(SYNC_KEYS, resolve));
+      const updates = {};
+      
+      SYNC_KEYS.forEach(key => {
+        if (localFullData[key] !== undefined) {
+          updates[key] = localFullData[key];
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+         // 确保更新时间也同步
+         updates['oj_last_update'] = localTime; 
+         await new Promise(resolve => chrome.storage.sync.set(updates, resolve));
+         console.log('[Sync] Push to cloud complete.');
+      }
+    }
+  } catch (e) {
+    console.error('[Sync] Init failed:', e);
+  }
+}
 
 // 加载 Prompt 模板
 async function loadPromptTemplate(featureKey) {
@@ -338,7 +540,10 @@ function getLLMConfig() {
 }
 
 // 初始化配置
-initializeConfig();
+initializeConfig().then(() => {
+  // 配置初始化完成后，尝试初始化数据同步
+  initializeDataSync();
+});
 
 // 监听来自 content-script 和 popup 的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -1143,6 +1348,7 @@ async function sendTelemetryEvent(eventName, params = {}) {
 if (typeof window !== 'undefined') {
   window.BackgroundService = {
     initializeConfig,
+    initializeDataSync,
     getLLMConfig,
     generatePrompt,
     appConfig,
