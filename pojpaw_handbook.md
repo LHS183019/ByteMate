@@ -10,24 +10,35 @@
 
 ## 🚀 安装指南
 
-### 方式一：下载打包好的扩展程序
-
-1.  **下载代码**：将下载好的`POJPaw_Extension.zip`解压。
-2.  **打开扩展管理**：在 Chrome/Edge 浏览器地址栏输入 `chrome://extensions`/`edge://extensions` 打开扩展管理页面。
-3.  **开启开发者模式**：打开“开发者模式”开关。
-4.  **加载扩展**：点击“加载已解压的扩展程序”，选择本项目根目录（包含 `manifest.json` 的文件夹）。
-
-### 方式二：浏览器扩展商店
+### 方式一：浏览器扩展商店
 
 1. Edge 商店：[点击前往下载](https://microsoftedge.microsoft.com/addons/detail/pojpaw-ai-openjudge-hel/blghlnhipannnjeddjbkpdjiikeaoica)
 2. Chrome 商店：暂未通过审核
+
+### 方式二：加载已解压的扩展程序（推荐开发/测试）
+
+为了防止更新时数据丢失（Chrome 会根据文件夹路径生成 ID），建议采用以下方式安装和更新：
+
+1.  **建立固定文件夹**：在电脑上创建一个固定的文件夹（例如 `D:\Extensions\POJPaw`），**以后不要修改这个文件夹的名字或位置**。
+2.  **下载并解压**：下载最新的 [Released ZIP](https://github.com/LHS183019/ByteMate/releases) 包。
+3.  **放入文件**：将解压后的所有文件复制到上述固定文件夹中。
+    *   **初次安装**：直接复制进去。
+    *   **版本更新**：将新版本解压后的内容**全量覆盖**到该固定文件夹中。
+4.  **加载扩展**：
+    *   打开 Chrome/Edge 扩展管理页面 (`chrome://extensions`)。
+    *   开启右上角的“开发者模式”。
+    *   点击“加载已解压的扩展程序”，选择这个**固定文件夹**。
+
+> **⚠️ 更新注意事项**：
+> 当有新版本时，请**只替换固定文件夹内的文件**，然后在扩展管理页面点击本扩展的 **刷新/重载** 按钮（⟳ 图标）。
+> **千万不要**在浏览器中点击“移除”扩展，也不要更改固定文件夹的路径，否则会导致本地存储的做题记录和设置丢失！
 
 
 ## ⚙️ 配置说明
 
 安装完成后，点击浏览器右上角的插件图标（POJPaw 图标）打开设置面板：
 
-1.  **选择模型**：暂时支持 DeepSeek, Qwen (通义千问) 
+1.  **选择模型**：暂时支持 DeepSeek, Qwen (通义千问), OpenAI (GPT-4o), Google Gemini, Anthropic Claude。
 2.  **配置 API Key**：
     *   输入您的 API Key。
     *   或者**留空**，你仍然可以拷贝prompt至自己偏好的软件使用。
@@ -66,6 +77,6 @@ Problemset中集成了openjudge的所有题目，并对题目进行了分类，�
 
 ---
 
-*Last Updated: 2025-12-22*
+*Last Updated: 2026-1-3*
 
 &copy; 2025 ByteMate Team.
