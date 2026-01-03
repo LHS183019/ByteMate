@@ -65,6 +65,8 @@ let appConfig = {
   targetLanguage: 'cpp'
 };
 
+let configInitPromise = null;
+
 // 记录最后一次复制代码的时间
 // let lastCopyTime = 0; // 移至 storage 存储，避免 Service Worker 休眠导致数据丢失
 
@@ -91,31 +93,56 @@ function getFromStorage(key) {
 }
 
 // 初始化配置
-async function initializeConfig() {
-  try {
-    // 从local storage加载配置
-    const storedModel = await getFromStorage(STORAGE_KEYS.MODEL);
-    const storedApiKey = await getFromStorage(STORAGE_KEYS.API_KEY);
-    const storedTargetLanguage = await getFromStorage(STORAGE_KEYS.TARGET_LANGUAGE);
+function initializeConfig() {
+  if (configInitPromise) return configInitPromise;
 
-    // 使用存储的配置，如果不存在则使用默认配置
-    appConfig.model = storedModel || DEFAULT_CONFIG.model;
-    appConfig.apiKey = storedApiKey || DEFAULT_CONFIG.apiKey;
-    appConfig.targetLanguage = storedTargetLanguage || DEFAULT_CONFIG.targetLanguage;
-    
-    console.log('[Background] 配置初始化完成:', {
-      model: appConfig.model,
-      apiKey: appConfig.apiKey ? '******' + appConfig.apiKey.slice(-4) : null,
-      targetLanguage: appConfig.targetLanguage,
-      storedModel,
-      storedApiKey: storedApiKey ? '******' + storedApiKey.slice(-4) : null,
-      usingDefaultKey: !storedApiKey,
-      hasApiKey: !!appConfig.apiKey
-    });
-  } catch (error) {
-    console.error('[Background] 配置初始化失败:', error);
-  }
+  configInitPromise = (async () => {
+    try {
+      // 从local storage加载配置
+      const storedModel = await getFromStorage(STORAGE_KEYS.MODEL);
+      const storedApiKey = await getFromStorage(STORAGE_KEYS.API_KEY);
+      const storedTargetLanguage = await getFromStorage(STORAGE_KEYS.TARGET_LANGUAGE);
+
+      // 使用存储的配置，如果不存在则使用默认配置
+      appConfig.model = storedModel || DEFAULT_CONFIG.model;
+      appConfig.apiKey = storedApiKey || DEFAULT_CONFIG.apiKey;
+      appConfig.targetLanguage = storedTargetLanguage || DEFAULT_CONFIG.targetLanguage;
+      
+      console.log('[Background] 配置初始化完成:', {
+        model: appConfig.model,
+        apiKey: appConfig.apiKey ? '******' + appConfig.apiKey.slice(-4) : null,
+        targetLanguage: appConfig.targetLanguage,
+        storedModel,
+        storedApiKey: storedApiKey ? '******' + storedApiKey.slice(-4) : null,
+        usingDefaultKey: !storedApiKey,
+        hasApiKey: !!appConfig.apiKey
+      });
+    } catch (error) {
+      console.error('[Background] 配置初始化失败:', error);
+      configInitPromise = null; // 允许重试
+    }
+  })();
+
+  return configInitPromise;
 }
+
+// 监听存储变化，实时更新配置
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local') {
+    if (changes[STORAGE_KEYS.MODEL]) {
+      appConfig.model = changes[STORAGE_KEYS.MODEL].newValue;
+      console.log('[Background] Model updated:', appConfig.model);
+    }
+    if (changes[STORAGE_KEYS.API_KEY]) {
+      appConfig.apiKey = changes[STORAGE_KEYS.API_KEY].newValue;
+      console.log('[Background] API Key updated');
+    }
+    if (changes[STORAGE_KEYS.TARGET_LANGUAGE]) {
+      appConfig.targetLanguage = changes[STORAGE_KEYS.TARGET_LANGUAGE].newValue;
+      console.log('[Background] Target language updated:', appConfig.targetLanguage);
+    }
+  }
+});
 
 // 加载 Prompt 模板
 async function loadPromptTemplate(featureKey) {
@@ -398,14 +425,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     chrome.storage.local.get((storageData) => {
       let problemStats = storageData.problemStats || {};
+      const now = Date.now();
+
       if(praticeId in problemStats) {
         console.log(`${praticeId} previous result: ${problemStats[praticeId].accepted}`);
         if(!problemStats[praticeId].accepted && isAccepted) {
           problemStats[praticeId].accepted = true;
+          problemStats[praticeId].timestamp = now;
         }
       } else {
         problemStats[praticeId] = {
-          "accepted": result === "Accepted"
+          "accepted": isAccepted,
+          "timestamp": isAccepted ? now : undefined
         };
       }
       chrome.storage.local.set({problemStats}, () => {
@@ -955,11 +986,27 @@ async function recordProblemSolved(problemId, timestamp) {
     
     // 保存题目详情
     const problemDetailKey = `oj_problem_details_${problemId}`;
+    
+    // 尝试从题库中获取详细信息
+    let title = `题目 ${problemId}`;
+    let tags = [];
+    
+    try {
+      const problems = await loadProblemSet();
+      const problemInfo = problems.find(p => p.id === problemId);
+      if (problemInfo) {
+        title = problemInfo.title;
+        tags = [...(problemInfo.algorithms || []), ...(problemInfo.data_structures || [])];
+      }
+    } catch (e) {
+      console.warn('[Background] Failed to load problem info for detail:', e);
+    }
+
     const problemDetail = {
       id: problemId,
-      title: `题目 ${problemId}`,
+      title: title,
       status: 'ac',
-      tags: [],
+      tags: tags,
       solvedAt: timestamp,
     };
     
@@ -1099,6 +1146,13 @@ if (typeof window !== 'undefined') {
     getLLMConfig,
     generatePrompt,
     appConfig,
-    PROVIDER_CONFIG
+    PROVIDER_CONFIG,
+    // Helper to reset state for tests
+    resetConfigForTesting: () => {
+      configInitPromise = null;
+      appConfig.model = null;
+      appConfig.apiKey = null;
+      appConfig.targetLanguage = 'cpp';
+    }
   };
 }

@@ -33,7 +33,8 @@ describe('LLM Provider Integration Tests', () => {
             }
           }),
           set: jest.fn((items, callback) => callback && callback())
-        }
+        },
+        onChanged: { addListener: jest.fn() }
       },
       contextMenus: {
         create: jest.fn(),
@@ -72,6 +73,11 @@ describe('LLM Provider Integration Tests', () => {
 
   // Helper to set config via storage mock
   const setConfig = (model, apiKey, targetLanguage = 'python') => {
+    // Reset background service config cache so it re-reads from storage
+    if (window.BackgroundService && window.BackgroundService.resetConfigForTesting) {
+      window.BackgroundService.resetConfigForTesting();
+    }
+
     global.chrome.storage.local.get.mockImplementation((keys, callback) => {
       const result = {};
       if (Array.isArray(keys)) {

@@ -23,12 +23,17 @@ describe('Background Service Tests', () => {
       storage: {
         local: {
           get: jest.fn((keys, callback) => callback({})),
-          set: jest.fn((items, callback) => callback && callback())
-        }
+          set: jest.fn((items, callback) => callback && callback()),
+          remove: jest.fn((keys, callback) => callback && callback())
+        },
+        onChanged: { addListener: jest.fn() }
       },
       contextMenus: {
         create: jest.fn(),
         onClicked: { addListener: jest.fn() }
+      },
+      tabs: {
+        create: jest.fn()
       }
     };
 
@@ -50,6 +55,12 @@ describe('Background Service Tests', () => {
     if (calls.length > 0) {
       messageListener = calls[0][0];
     }
+    
+    // Capture storage change listener
+    const storageCalls = global.chrome.storage.onChanged.addListener.mock.calls;
+    if (storageCalls.length > 0) {
+      bgService.storageChangeListener = storageCalls[0][0];
+    }
   });
 
   beforeEach(() => {
@@ -58,9 +69,33 @@ describe('Background Service Tests', () => {
     // But we captured the function reference in `messageListener`, so we can still call it.
     // However, we don't need to re-mock addListener, we just need to use the captured function.
     
-    // Reset appConfig if possible, or just rely on initializeConfig
-    bgService.appConfig.model = null;
-    bgService.appConfig.apiKey = null;
+    // Reset appConfig and promise cache
+    if (bgService.resetConfigForTesting) {
+      bgService.resetConfigForTesting();
+    } else {
+      // Fallback if not available (though it should be)
+      bgService.appConfig.model = null;
+      bgService.appConfig.apiKey = null;
+      bgService.appConfig.targetLanguage = 'cpp';
+    }
+  });
+
+  test('Configuration updates on storage change', () => {
+    // Initial state
+    bgService.appConfig.model = 'old-model';
+    
+    // Simulate storage change
+    const changes = {
+      bytemate_model: { newValue: 'new-model' },
+      bytemate_api_key: { newValue: 'new-key' },
+      bytemate_target_language: { newValue: 'python' }
+    };
+    
+    bgService.storageChangeListener(changes, 'local');
+    
+    expect(bgService.appConfig.model).toBe('new-model');
+    expect(bgService.appConfig.apiKey).toBe('new-key');
+    expect(bgService.appConfig.targetLanguage).toBe('python');
   });
 
   test('initializeConfig loads settings from storage', async () => {
@@ -194,7 +229,7 @@ describe('Background Service Tests', () => {
       }));
     });
 
-    test('record_problem_solved updates daily stats', async () => {
+    test('record_problem_solved updates daily stats and saves problem details', async () => {
       const sendResponse = jest.fn();
       const request = {
         action: 'record_problem_solved',
@@ -214,21 +249,23 @@ describe('Background Service Tests', () => {
         if (callback) callback();
       });
 
-      // Since recordProblemSolved is async and not awaited in the listener (it returns true),
-      // we need to wait a bit or mock the implementation to be synchronous if possible.
-      // However, the listener calls recordProblemSolved(...).then(...)
-      // We can await the promise returned by the listener if it returns one, 
-      // but the listener returns `true` for async response.
-      // We'll rely on the fact that the promise chain inside listener executes.
-      
-      // To make this test robust, we can spy on console.log or just wait.
-      // Better yet, we can invoke the internal function if exposed, but here we test the message handler.
-      
-      // Let's just call the handler and wait a tick.
+      // Mock fetch for loadProblemSet
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('all_problems.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([
+              { id: '1001', title: 'A+B Problem', algorithms: ['Math'], data_structures: [] }
+            ])
+          });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      });
+
       messageListener(request, {}, sendResponse);
       
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Check if storage was updated
       const today = new Date().toISOString().split('T')[0];
@@ -236,6 +273,14 @@ describe('Background Service Tests', () => {
       expect(storage[todayKey]).toBeDefined();
       expect(storage[todayKey].completedCount).toBe(1);
       expect(storage[todayKey].completedProblems).toContain('1001');
+      
+      // Check problem details
+      const detailKey = 'oj_problem_details_1001';
+      expect(storage[detailKey]).toBeDefined();
+      expect(storage[detailKey].title).toBe('A+B Problem');
+      expect(storage[detailKey].tags).toContain('Math');
+      expect(storage[detailKey].solvedAt).toBe(request.timestamp);
+      
       expect(sendResponse).toHaveBeenCalledWith({ ok: true });
     });
 
