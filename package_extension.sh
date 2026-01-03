@@ -1,5 +1,6 @@
 #!/bin/bash
-OUTPUT_FILE="POJPaw_Extension.zip"
+VERSION=$(grep '"version":' manifest.json | cut -d\" -f4)
+OUTPUT_FILE="POJPaw_v$VERSION.zip"
 # 如果存在旧的压缩包，先删除
 if [ -f "$OUTPUT_FILE" ]; then
     rm "$OUTPUT_FILE"
@@ -15,6 +16,7 @@ zip -r "$OUTPUT_FILE" . \
     -x "TELEMETRY.md" \
     -x "UNIT-TEST.md" \
     -x "PRIVACY_POLICY.md" \
+    -x "DATA_PERSISTENCE_TEST.md" \
     -x "package.json" \
     -x "package-lock.json" \
     -x "jest.config.js" \

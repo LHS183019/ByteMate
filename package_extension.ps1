@@ -1,4 +1,6 @@
-$outputFile = "POJPaw_Extension.zip"
+$manifest = Get-Content "manifest.json" -Raw | ConvertFrom-Json
+$version = $manifest.version
+$outputFile = "POJPaw_v$version.zip"
 
 # 如果存在旧的压缩包，先删除
 if (Test-Path $outputFile) {
