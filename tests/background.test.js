@@ -23,12 +23,22 @@ describe('Background Service Tests', () => {
       storage: {
         local: {
           get: jest.fn((keys, callback) => callback({})),
-          set: jest.fn((items, callback) => callback && callback())
-        }
+          set: jest.fn((items, callback) => callback && callback()),
+          remove: jest.fn((keys, callback) => callback && callback())
+        },
+        sync: {
+          get: jest.fn((keys, callback) => callback({})),
+          set: jest.fn((items, callback) => callback && callback()),
+          remove: jest.fn((keys, callback) => callback && callback())
+        },
+        onChanged: { addListener: jest.fn() }
       },
       contextMenus: {
         create: jest.fn(),
         onClicked: { addListener: jest.fn() }
+      },
+      tabs: {
+        create: jest.fn()
       }
     };
 
@@ -50,6 +60,12 @@ describe('Background Service Tests', () => {
     if (calls.length > 0) {
       messageListener = calls[0][0];
     }
+    
+    // Capture storage change listener
+    const storageCalls = global.chrome.storage.onChanged.addListener.mock.calls;
+    if (storageCalls.length > 0) {
+      bgService.storageChangeListener = storageCalls[0][0];
+    }
   });
 
   beforeEach(() => {
@@ -58,9 +74,102 @@ describe('Background Service Tests', () => {
     // But we captured the function reference in `messageListener`, so we can still call it.
     // However, we don't need to re-mock addListener, we just need to use the captured function.
     
-    // Reset appConfig if possible, or just rely on initializeConfig
-    bgService.appConfig.model = null;
-    bgService.appConfig.apiKey = null;
+    // Reset appConfig and promise cache
+    if (bgService.resetConfigForTesting) {
+      bgService.resetConfigForTesting();
+    } else {
+      // Fallback if not available (though it should be)
+      bgService.appConfig.model = null;
+      bgService.appConfig.apiKey = null;
+      bgService.appConfig.targetLanguage = 'cpp';
+    }
+  });
+
+  test('Configuration updates on storage change', () => {
+    // Initial state
+    bgService.appConfig.model = 'old-model';
+    
+    // Simulate storage change
+    const changes = {
+      bytemate_model: { newValue: 'new-model' },
+      bytemate_api_key: { newValue: 'new-key' },
+      bytemate_target_language: { newValue: 'python' }
+    };
+    
+    bgService.storageChangeListener(changes, 'local');
+    
+    expect(bgService.appConfig.model).toBe('new-model');
+    expect(bgService.appConfig.apiKey).toBe('new-key');
+    expect(bgService.appConfig.targetLanguage).toBe('python');
+  });
+
+  test('Sync merges problem lists correctly', () => {
+    // Setup existing local data
+    const localProblems = ['1001', '1002'];
+    global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+      if (Array.isArray(keys) && keys.includes('oj_problems_solved')) {
+        callback({ oj_problems_solved: localProblems });
+      } else {
+        callback({});
+      }
+    });
+
+    // Simulate sync storage change with new data
+    const changes = {
+      oj_problems_solved: { newValue: ['1002', '1003'] }
+    };
+    
+    bgService.storageChangeListener(changes, 'sync');
+    
+    // Verify local.set was called with merged list
+    expect(global.chrome.storage.local.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oj_problems_solved: expect.arrayContaining(['1001', '1002', '1003'])
+      }),
+      expect.any(Function) // The callback argument
+    );
+    
+    // Verify length is correct (3 items)
+    const setCall = global.chrome.storage.local.set.mock.calls.find(call => call[0].oj_problems_solved);
+    expect(setCall[0].oj_problems_solved.length).toBe(3);
+  });
+
+  test('initializeDataSync pushes local to sync if local is newer', async () => {
+    // Setup: Local has data (newer), Sync is empty
+    const localData = {
+      oj_last_update: 1000,
+      bytemate_model: 'local-model',
+      oj_problems_solved: ['1001']
+    };
+    const syncData = {}; // Empty sync
+
+    global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+      // If requesting specific keys (SYNC_KEYS), return full data
+      if (Array.isArray(keys) && keys.includes('bytemate_model')) {
+        callback(localData);
+      } else {
+        // Initial check requests ['oj_last_update', 'oj_problems_solved']
+        callback({
+          oj_last_update: localData.oj_last_update,
+          oj_problems_solved: localData.oj_problems_solved
+        });
+      }
+    });
+
+    global.chrome.storage.sync.get.mockImplementation((keys, callback) => {
+      callback(syncData);
+    });
+
+    await bgService.initializeDataSync();
+
+    // Verify sync.set was called with local data
+    expect(global.chrome.storage.sync.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bytemate_model: 'local-model',
+        oj_last_update: 1000
+      }),
+      expect.any(Function)
+    );
   });
 
   test('initializeConfig loads settings from storage', async () => {
@@ -194,7 +303,7 @@ describe('Background Service Tests', () => {
       }));
     });
 
-    test('record_problem_solved updates daily stats', async () => {
+    test('record_problem_solved updates daily stats and saves problem details', async () => {
       const sendResponse = jest.fn();
       const request = {
         action: 'record_problem_solved',
@@ -214,21 +323,23 @@ describe('Background Service Tests', () => {
         if (callback) callback();
       });
 
-      // Since recordProblemSolved is async and not awaited in the listener (it returns true),
-      // we need to wait a bit or mock the implementation to be synchronous if possible.
-      // However, the listener calls recordProblemSolved(...).then(...)
-      // We can await the promise returned by the listener if it returns one, 
-      // but the listener returns `true` for async response.
-      // We'll rely on the fact that the promise chain inside listener executes.
-      
-      // To make this test robust, we can spy on console.log or just wait.
-      // Better yet, we can invoke the internal function if exposed, but here we test the message handler.
-      
-      // Let's just call the handler and wait a tick.
+      // Mock fetch for loadProblemSet
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('all_problems.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([
+              { id: '1001', title: 'A+B Problem', algorithms: ['Math'], data_structures: [] }
+            ])
+          });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      });
+
       messageListener(request, {}, sendResponse);
       
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Check if storage was updated
       const today = new Date().toISOString().split('T')[0];
@@ -236,6 +347,14 @@ describe('Background Service Tests', () => {
       expect(storage[todayKey]).toBeDefined();
       expect(storage[todayKey].completedCount).toBe(1);
       expect(storage[todayKey].completedProblems).toContain('1001');
+      
+      // Check problem details
+      const detailKey = 'oj_problem_details_1001';
+      expect(storage[detailKey]).toBeDefined();
+      expect(storage[detailKey].title).toBe('A+B Problem');
+      expect(storage[detailKey].tags).toContain('Math');
+      expect(storage[detailKey].solvedAt).toBe(request.timestamp);
+      
       expect(sendResponse).toHaveBeenCalledWith({ ok: true });
     });
 
