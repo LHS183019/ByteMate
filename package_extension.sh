@@ -1,6 +1,7 @@
 #!/bin/bash
 VERSION=$(grep '"version":' manifest.json | cut -d\" -f4)
-OUTPUT_FILE="POJPaw_v$VERSION.zip"
+SAFE_VERSION=${VERSION//./_}
+OUTPUT_FILE="POJPaw_v$SAFE_VERSION.zip"
 # 如果存在旧的压缩包，先删除
 if [ -f "$OUTPUT_FILE" ]; then
     rm "$OUTPUT_FILE"

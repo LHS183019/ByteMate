@@ -223,7 +223,7 @@ npm test
 bash package_extension.sh
 ```
 
-脚本会在根目录生成 `POJPaw_Extension.zip`。将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
+脚本会在根目录生成带有版本号的压缩包（例如 `POJPaw_v1_0_3.zip`）。将该 ZIP 文件发送给用户，解压后按照“方式一”加载即可。
 
 **Mac/Linux 用户提示**:
 1. 环境中没有下载 `zip`： 确保在unix/linux环境下运行 `sudo apt install zip` 安装。
